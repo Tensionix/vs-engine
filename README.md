@@ -8,7 +8,7 @@
 - [Direct download](https://audion.dev/get/vs-engine/2.0.1/Audion_VS_Engine_v2.0.1_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/vs-engine) — every version and how to install
 
-![The program window](docs/screenshot.png)
+<img src="docs/screenshot.png" alt="The program window" width="560">
 
 `SHA-256: 85d2d1eec3e6df5b151afc9fca319b936ec40235eac207288f5b8a728853817f`
 
