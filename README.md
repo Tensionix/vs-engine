@@ -8,14 +8,14 @@
   <a href="https://github.com/Tensionix/vs-engine/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/vs-engine?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 2.0.2** · 2026-09-01 · 451.6 MB
+**Version 2.0.2** · 2026-09-01 · 7.7 MB
 
-- [Direct download](https://dl.audion.dev/vs-engine/2.0.2/Audion_VS_Engine_v2.0.2_Full.zip) — unmetered, no rate limits
+- [Direct download](https://dl.audion.dev/vs-engine/2.0.2/Audion_VS_Engine_v2.0.2.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/vs-engine) — every version and how to install
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: 3bf9ebb276e06a075443c364b322258026f6772e6ac5ea0c89eddd53d29f1729`
+`SHA-256: 43256bcb4879bcdca05b6adaa45a0bc01f0d7ee1f823de8a9ea6dbf0153da5f8`
 
 ---
 
