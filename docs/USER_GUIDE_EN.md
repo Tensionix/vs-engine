@@ -1,5 +1,18 @@
 # VapourWiki — Audion VS Engine preset reference (EN)
 
+**Contents**
+
+- [Before you start: install the engine](#before-you-start-install-the-engine)
+- [Decision tree — which preset for which job](#decision-tree--which-preset-for-which-job)
+- [PRECISION palette — technical pipeline (8 presets)](#precision-palette--technical-pipeline-8-presets)
+- [FILM_LOOKS palette — film emulations (7 presets)](#filmlooks-palette--film-emulations-7-presets)
+- [RETRO palette — analog character (3 presets)](#retro-palette--analog-character-3-presets)
+- [RESTORATION palette — supercannons (10 presets, Phase 18.B + 18.B-ML)](#restoration-palette--supercannons-10-presets-phase-18b--18b-ml)
+- [Encoders — my patterns](#encoders--my-patterns)
+- [Install & service scripts — when to run what](#install--service-scripts--when-to-run-what)
+- [Additional — full reference](#additional--full-reference)
+- [AI / ML (Phase 18.B-ML) — vs-mlrt stack](#ai--ml-phase-18b-ml--vs-mlrt-stack)
+
 Full English reference for all 28 presets across 4 palettes. Starts with a **decision tree** ("which preset for which job"), then per-preset detail: what it does, what material it suits, key parameters, recommended encoder.
 
 > Russian counterpart: `VapourWiki_RU.md` (this document mirrors it). Per-preset technical docstrings live inside each `.vpy` file in `system_core/presets/<palette>/`.

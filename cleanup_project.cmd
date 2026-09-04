@@ -47,7 +47,7 @@ echo.
 echo Kept:
 echo   *.cmd, *.ps1, *.py, *.vpy, docs, config\, config\profiles\
 echo   install\Install-VS-mlrt.* and all MLRT preset source files
-echo   .gitignore and .gitkeep placeholders created by install\init_folders.cmd
+echo   .gitignore, and the empty service folders created by install\init_folders.cmd
 echo.
 echo IMPORTANT: after this cleanup, run the installer/builder again to rebuild
 echo the portable stack for the target hardware, e.g. Intel LEAN.
@@ -138,14 +138,14 @@ if exist "%BASE_DIR%\install\init_folders.cmd" (
   echo [WARN] install\init_folders.cmd not found; placeholders were not recreated.
 )
 
-call :ASSERT_ABSENT "%BASE_DIR%\Tools\ffmpeg" "Tools\ffmpeg"
+call :ASSERT_EMPTY "%BASE_DIR%\Tools\ffmpeg" "Tools\ffmpeg"
 call :ASSERT_ABSENT "%BASE_DIR%\system_core\vapoursynth" "system_core\vapoursynth"
 call :ASSERT_PRESENT "%BASE_DIR%\wheelhouse" "wheelhouse"
 
 echo.
 echo [DONE] Project cleanup finished. Removed approximately %REMOVED% items.
 echo The tree is now intended to contain only source scripts, docs, configs,
-echo preset source files and empty service folders with .gitkeep placeholders.
+echo preset source files and empty service folders.
 echo.
 call :WAIT_IF_NEEDED
 exit /b 0
@@ -203,6 +203,24 @@ if exist "%~1\" (
 ) else (
   echo [OK] %~2 absent from cleaned tree
 )
+goto :eof
+
+:ASSERT_EMPTY
+rem install\init_folders.cmd recreates this folder as an empty release
+rem placeholder, so absence is not the test - emptiness is. A binary that
+rem survived the cleanup is what this must still catch.
+if not exist "%~1\" (
+  echo [OK] %~2 absent from cleaned tree
+  goto :eof
+)
+set "ASSERT_HIT="
+for /f "delims=" %%F in ('dir /a-d /b /s "%~1" 2^>nul') do set "ASSERT_HIT=1"
+if defined ASSERT_HIT (
+  echo [WARN] %~2 still holds files after cleanup. It should be an empty placeholder.
+) else (
+  echo [OK] %~2 empty placeholder in cleaned tree
+)
+set "ASSERT_HIT="
 goto :eof
 
 :ASSERT_PRESENT
