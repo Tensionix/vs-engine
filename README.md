@@ -23,7 +23,7 @@ An **Audion** tool, published by [Tensionix](https://github.com/Tensionix).
 <!-- /audion:release -->
 
 
-[Русский](docs/README_RU.md) · [User Guide](docs/USER_GUIDE_EN.md)
+[Русский](Docs/README_RU.md) · [User Guide](Docs/USER_GUIDE_EN.md)
 
 **Contents**
 
@@ -83,7 +83,7 @@ Lite is lighter and needs no graphics card for the heavy operations.
 
 ## Next
 
-* [User Guide](docs/USER_GUIDE_EN.md) — installing the engine, first run, palettes,
+* [User Guide](Docs/USER_GUIDE_EN.md) — installing the engine, first run, palettes,
   profiles, command line.
 
 ---
