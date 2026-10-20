@@ -3,19 +3,20 @@
 <!-- audion:release -->
 <p align="center">
   <a href="https://audion.dev/downloads/vs-engine"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0b6db8?style=flat-square&logo=windows&logoColor=white"></a>
-  <a href="https://github.com/Tensionix/vs-engine/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Tensionix/vs-engine?style=flat-square&label=release&color=e08a63"></a>
+  <a href="https://github.com/Tensionix/vs-engine/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Tensionix/vs-engine?style=flat-square&label=release&color=2a7488"></a>
   <a href="https://github.com/Tensionix/vs-engine/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Tensionix/vs-engine/total?style=flat-square&label=downloads&color=5fd08a"></a>
   <a href="https://github.com/Tensionix/vs-engine/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/vs-engine?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 2.0.3** · 2026-09-20 · 452.2 MB
+**Version 3.1.0** · 2026-10-20 · 388.8 MB
 
-- [Direct download](https://audion.dev/get/vs-engine/2.0.3/Audion_VS_Engine_v2.0.3_Full.zip) — unmetered, no rate limits
+- [Direct download](https://dl.audion.dev/vs-engine/3.1.0/Audion_VS_Engine_v3.1.0_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/vs-engine) — every version and how to install
+- [GitHub release](https://github.com/Tensionix/vs-engine/releases/tag/v3.1.0)
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: 1478a369f178f4636b1f0ea817584730ac96e7780e26339550e6abe43b0363af`
+`SHA-256: d5edf69462aa6f3a633400c5f8e5f001296616c4fdd17e97f317fda4b256e91c`
 
 ---
 
