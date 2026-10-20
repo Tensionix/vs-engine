@@ -186,14 +186,81 @@ def main(argv: list[str]) -> int:
         _log(f"vsrepo.py not found: {target}")
         return 2
 
+    # vsrepo keeps its package database in %APPDATA%\vsrepo. This VS-host keeps it inside itself, so removing the engine
+    # folder removes it too, and a VapourSynth installed in the system keeps its own.
+    os.environ["APPDATA"] = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "vsrepo-data")
+    # vsrepo creates only the last folder of that path itself.
+    os.makedirs(os.path.join(os.environ["APPDATA"], "vsrepo"), exist_ok=True)
     install_opener()
     install_retry()
 
     # vsrepo reads sys.argv itself, so it has to see the arguments it would have
     # seen if it had been started directly.
     sys.argv = [target] + argv[2:]
-    runpy.run_path(target, run_name="__main__")
-    return 0
+    if argv[2:3] != ["update"]:
+        runpy.run_path(target, run_name="__main__")
+        return 0
+    try:
+        runpy.run_path(target, run_name="__main__")
+        return 0
+    except SystemExit as stop:
+        if not stop.code:
+            return 0
+        reason: BaseException = stop
+    except Exception as exc:  # noqa: BLE001 - any failure of the update goes to the fallback below
+        reason = exc
+    _log(f"the package database of www.vapoursynth.com did not come: {type(reason).__name__}: {reason}")
+    return compile_catalogue_from_github()
+
+
+# --- the package database without www.vapoursynth.com ----------------------------------------------------------
+#
+# Measured 17 October 2026: www.vapoursynth.com answered vsrepo's request for vsrepo/vspackages3.zip with a page of
+# 12 KB, "One moment, please..." - a check for robots that reloads itself by JavaScript - with no Last-Modified, and
+# vsrepo fell on it (TypeError in email.utils.mktime_tz). The check is not worked around: the database is the same
+# file built from its source instead. vspackages3.zip is made by vsrupdate.py compile of github.com/vapoursynth/vsrepo
+# - every local/*.json but *.new.json, "ignore" dropped, {"file-format": 3, "packages": [...]} - and the plugins
+# themselves are downloaded from GitHub either way.
+
+_VSREPO_ZIPBALL = "https://codeload.github.com/vapoursynth/vsrepo/zip/refs/heads/master"
+
+
+def _vsrepo_package_json_path() -> str:
+    # The place vsrepo.py itself reads (package_json_path in vsrepo.py), APPDATA as main() set it.
+    if os.name == "nt":
+        return os.path.join(str(os.getenv("APPDATA")), "vsrepo", "vspackages3.json")
+    return os.path.join(str(os.getenv("HOME")), ".config", "vsrepo", "vspackages3.json")
+
+
+def compile_catalogue_from_github() -> int:
+    import io
+    import json
+    import zipfile
+
+    _log(f"building the same database from its source: {_VSREPO_ZIPBALL}")
+    try:
+        with urllib.request.urlopen(urllib.request.Request(_VSREPO_ZIPBALL, headers={"User-Agent": "VSRepo"})) as response:
+            data = response.read()
+        packages = []
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            for name in sorted(archive.namelist()):
+                parts = name.split("/")
+                if len(parts) == 3 and parts[1] == "local" and name.endswith(".json") and not name.endswith(".new.json"):
+                    package = json.loads(archive.read(name).decode("utf-8"))
+                    package.pop("ignore", None)
+                    packages.append(package)
+        if not packages:
+            _log("the source archive holds no package definitions")
+            return 1
+        target = _vsrepo_package_json_path()
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w", encoding="utf-8") as fh:
+            json.dump({"file-format": 3, "packages": packages}, fh, ensure_ascii=False, indent=2)
+        _log(f"package database written from GitHub: {len(packages)} packages -> {target}")
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        _log(f"the database could not be built from GitHub either: {type(exc).__name__}: {exc}")
+        return 1
 
 
 if __name__ == "__main__":

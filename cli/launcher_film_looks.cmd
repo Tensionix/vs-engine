@@ -45,8 +45,8 @@ goto FALLBACK_MENU
 >>"%MENU_FILE%" echo [03] Film 16mm                   ^| film_16mm       ^| organic, grainier, lifted blacks
 >>"%MENU_FILE%" echo [04] Super 8                     ^| super8          ^| heaviest grain, softest, faded 70s
 >>"%MENU_FILE%" echo [05] Bleach bypass               ^| bleach_bypass   ^| high contrast, desaturated, harsh
->>"%MENU_FILE%" echo [06] IMAX 70mm                   ^| imax_70mm       ^| large format -- minimal grain, gentle halation, 1px gate weave
->>"%MENU_FILE%" echo [07] Anamorphic scope            ^| anamorphic      ^| Hollywood cinemascope -- horizontal blue lens flares + teal shadows
+>>"%MENU_FILE%" echo [06] IMAX 70mm                   ^| imax_70mm       ^| large format: finest grain, 1px gate weave
+>>"%MENU_FILE%" echo [07] Anamorphic scope            ^| anamorphic      ^| cinemascope: blue lens flares, teal shadows
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Tools ===========================================================
 >>"%MENU_FILE%" echo [08] List encoders               ^| list_encoders   ^| H.264 / H.265 / ProRes / DNxHR
@@ -71,7 +71,7 @@ if /I "%RAW%"=="film_16mm"     goto FILM_16MM
 if /I "%RAW%"=="super8"        goto SUPER8
 if /I "%RAW%"=="bleach_bypass" goto BLEACH_BYPASS
 if /I "%RAW%"=="imax_70mm"     goto IMAX_70MM
-if /I "%RAW%"=="anamorphic"    goto ANAMORPHIC
+if /I "%RAW%"=="anamorphic"    goto ANAMORPHIC_SCOPE
 if /I "%RAW%"=="list_encoders" goto LIST_ENCODERS
 if /I "%RAW%"=="doctor"        goto DOCTOR
 if /I "%RAW%"=="open_input"    goto OPEN_INPUT
@@ -87,8 +87,8 @@ echo [2] Film 35mm            (Kodak 250D / 500T / 50D)
 echo [3] Film 16mm            (organic, grainier)
 echo [4] Super 8              (heaviest, faded 70s)
 echo [5] Bleach bypass        (high contrast, desat)
-echo [6] IMAX 70mm            (large format, minimal grain, gate weave)
-echo [7] Anamorphic scope     (cinemascope blue flares + teal shadows)
+echo [6] IMAX 70mm            (large format, minimal grain)
+echo [7] Anamorphic scope     (blue flares, teal shadows)
 echo.
 echo === TOOLS ===
 echo [8] List encoders
@@ -105,7 +105,7 @@ if errorlevel 11 goto OPEN_OUTPUT
 if errorlevel 10 goto OPEN_INPUT
 if errorlevel 9  goto DOCTOR
 if errorlevel 8  goto LIST_ENCODERS
-if errorlevel 7  goto ANAMORPHIC
+if errorlevel 7  goto ANAMORPHIC_SCOPE
 if errorlevel 6  goto IMAX_70MM
 if errorlevel 5  goto BLEACH_BYPASS
 if errorlevel 4  goto SUPER8
@@ -124,7 +124,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE cinematic
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET cinematic --intensity %INTENSITY%
+call :RUN_PRESET cinematic intensity %INTENSITY%
 goto MAIN
 
 :FILM_35MM
@@ -133,7 +133,7 @@ call :ASK_OUTPUT_FILE film_35mm
 call :ASK_STOCK
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET film_35mm --stock %STOCK% --intensity %INTENSITY%
+call :RUN_PRESET film_35mm stock %STOCK% intensity %INTENSITY%
 goto MAIN
 
 :FILM_16MM
@@ -141,7 +141,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE film_16mm
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET film_16mm --intensity %INTENSITY%
+call :RUN_PRESET film_16mm intensity %INTENSITY%
 goto MAIN
 
 :SUPER8
@@ -149,7 +149,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE super8
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET super8 --intensity %INTENSITY%
+call :RUN_PRESET super8 intensity %INTENSITY%
 goto MAIN
 
 :BLEACH_BYPASS
@@ -157,7 +157,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE bleach_bypass
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET bleach_bypass --intensity %INTENSITY%
+call :RUN_PRESET bleach_bypass intensity %INTENSITY%
 goto MAIN
 
 :IMAX_70MM
@@ -166,22 +166,22 @@ call :ASK_OUTPUT_FILE imax_70mm
 call :ASK_INTENSITY
 call :ASK_GATE_WEAVE
 call :ASK_ENCODER
-call :RUN_PRESET imax_70mm --intensity %INTENSITY% --gate-weave %GATE_WEAVE%
+call :RUN_PRESET imax_70mm intensity %INTENSITY% gate_weave %GATE_WEAVE%
 goto MAIN
 
-:ANAMORPHIC
+:ANAMORPHIC_SCOPE
 call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE anamorphic
+call :ASK_OUTPUT_FILE anamorphic_scope
 call :ASK_INTENSITY
 call :ASK_FLARE_LEN
 call :ASK_FLARE_THR
 call :ASK_TEAL_SHADOW
 call :ASK_ENCODER
-call :RUN_PRESET anamorphic_scope --intensity %INTENSITY% --flare-len %FLARE_LEN% --flare-thr %FLARE_THR% --teal-shadow %TEAL_SHADOW%
+call :RUN_PRESET anamorphic_scope intensity %INTENSITY% flare_len %FLARE_LEN% flare_thr %FLARE_THR% teal_shadow %TEAL_SHADOW%
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -212,14 +212,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Press Enter to use the project input folder, or type a file/folder path.
 set /p SRC_PATH=Input file or folder [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Output file [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Output folder [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_INTENSITY
@@ -255,13 +257,13 @@ goto :eof
 :ASK_GATE_WEAVE
 set "GATE_WEAVE="
 echo.
-echo Gate weave (subtle 1px random per-frame offset, simulates film in projector gate):
-echo   1 - on   (default; gives a subtle "alive" film feel)
-echo   2 - off  (perfectly stable digital frames)
+echo Gate weave (every frame moves by up to 1px, as film does in a projector gate):
+echo   1 - on   (default; subtle 1px weave, an "alive" film feel)
+echo   2 - off  (perfectly still digital frames)
 set /p GATE_WEAVE=Select [1] :
-if not defined GATE_WEAVE set "GATE_WEAVE=1"
-if /I "%GATE_WEAVE%"=="1" set "GATE_WEAVE=1"
-if /I "%GATE_WEAVE%"=="2" set "GATE_WEAVE=0"
+if not defined GATE_WEAVE set "GATE_WEAVE=true"
+if /I "%GATE_WEAVE%"=="1" set "GATE_WEAVE=true"
+if /I "%GATE_WEAVE%"=="2" set "GATE_WEAVE=false"
 goto :eof
 
 :ASK_FLARE_LEN
@@ -347,7 +349,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -357,7 +360,7 @@ echo       input:   %SRC_PATH%
 echo       output:  %DST_PATH%
 echo       encoder: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette film_looks --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof

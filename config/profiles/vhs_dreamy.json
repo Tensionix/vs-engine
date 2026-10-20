@@ -4,6 +4,6 @@
   "params": {
     "intensity": 1.2
   },
-  "encoder": "h264_crf18",
+  "encoder": "h264_crf14",
   "description": "VHS / CRT retro at intensity 1.2"
 }

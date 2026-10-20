@@ -43,7 +43,7 @@ goto FALLBACK_MENU
 > "%MENU_FILE%" echo === Ретро-эстетика (аналоговый характер) ==========================
 >>"%MENU_FILE%" echo [01] VHS / CRT                             ^| vhs_crt         ^| chroma bleed, мягкая оптика, аналоговый шум
 >>"%MENU_FILE%" echo [02] Camcorder 90s                         ^| camcorder_90s   ^| мягче VHS, лёгкая переэкспозиция
->>"%MENU_FILE%" echo [03] Polaroid                              ^| polaroid        ^| 1970s SX-70: candy-bloom, тёплая кремовость, виньетка
+>>"%MENU_FILE%" echo [03] Полароид                              ^| polaroid        ^| SX-70 70-х: карамельные света, виньетка
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Сервис ========================================================
 >>"%MENU_FILE%" echo [04] Список энкодеров                      ^| list_encoders   ^| H.264 / H.265 / ProRes / DNxHR
@@ -77,7 +77,7 @@ goto MAIN
 echo === Ретро-эстетика ===
 echo [1] VHS / CRT             (chroma bleed, мягкая оптика)
 echo [2] Camcorder 90s         (мягче VHS, переэкспозиция)
-echo [3] Polaroid              (SX-70 vibe, candy-bloom, виньетка)
+echo [3] Полароид              (SX-70, карамельное свечение, виньетка)
 echo.
 echo === Сервис ===
 echo [4] Список энкодеров
@@ -109,7 +109,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE vhs_crt
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET vhs_crt --intensity %INTENSITY%
+call :RUN_PRESET vhs_crt intensity %INTENSITY%
 goto MAIN
 
 :CAMCORDER_90S
@@ -117,7 +117,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE camcorder_90s
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET camcorder_90s --intensity %INTENSITY%
+call :RUN_PRESET camcorder_90s intensity %INTENSITY%
 goto MAIN
 
 :POLAROID
@@ -126,11 +126,11 @@ call :ASK_OUTPUT_FILE polaroid
 call :ASK_INTENSITY
 call :ASK_VIGNETTE
 call :ASK_ENCODER
-call :RUN_PRESET polaroid --intensity %INTENSITY% --vignette %VIGNETTE%
+call :RUN_PRESET polaroid intensity %INTENSITY% vignette %VIGNETTE%
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -161,14 +161,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Нажмите Enter для папки input проекта или укажите путь.
 set /p SRC_PATH=Файл или папка input [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Выходной файл [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Папка результата [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_INTENSITY
@@ -190,9 +192,9 @@ goto :eof
 :ASK_VIGNETTE
 set "VIGNETTE="
 echo.
-echo Edge виньетка (затемнение углов; 0 = нет, 1 = углы в чёрный):
+echo Виньетка (затемнение углов; 0 = нет, 1 = углы уходят в чёрный):
 echo   1 - 0.30  (тонко)
-echo   2 - 0.55  (Polaroid по умолчанию)
+echo   2 - 0.55  (по умолчанию, как у Polaroid)
 echo   3 - 0.80  (сильно)
 set /p VIGNETTE=Выбор [2] :
 if not defined VIGNETTE set "VIGNETTE=0.55"
@@ -236,7 +238,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -246,7 +249,7 @@ echo          вход:    %SRC_PATH%
 echo          выход:   %DST_PATH%
 echo          энкодер: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette retro --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof

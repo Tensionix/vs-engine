@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-title Audion Python Portable Template - Build Portable Env
+title Audion VS Engine - Build Portable Env
 
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
@@ -12,7 +12,6 @@ set "DOWNLOAD_DIR=%INSTALL_DIR%\download"
 set "RUNTIME_DIR=%ROOT%\runtime"
 set "WHEELHOUSE_DIR=%ROOT%\wheelhouse"
 set "REQ_FILE=%INSTALL_DIR%\requirements_full.in"
-set "GUI_SMOKE=%ROOT%\system_core\ui_nicegui\app.py"
 set "GET_PIP=%DOWNLOAD_DIR%\get-pip.py"
 
 echo [preflight] Checking and repairing CMD encoding...
@@ -29,7 +28,7 @@ set "PYTHON_ZIP_PATH=%DOWNLOAD_DIR%\%PYTHON_ZIP%"
 call "%INSTALL_DIR%\init_folders.cmd"
 
 echo ======================================================================
-echo   AUDION PYTHON PORTABLE TEMPLATE - BUILD PORTABLE ENV
+echo   AUDION VS ENGINE - BUILD PORTABLE ENV
 echo ======================================================================
 echo Root:       %ROOT%
 echo Install:    %INSTALL_DIR%
@@ -75,8 +74,6 @@ echo [6/8] Installing pip...
 if errorlevel 1 goto ERR_PIP
 
 echo [7/8] Building wheelhouse...
-"%RUNTIME_DIR%\python.exe" -m pip install --disable-pip-version-check --upgrade setuptools wheel packaging
-if errorlevel 1 goto ERR_BOOTSTRAP
 for /f "delims=" %%F in ('dir /a /b "%WHEELHOUSE_DIR%" 2^>nul') do (
   if /I not "%%F"==".gitkeep" (
     if exist "%WHEELHOUSE_DIR%\%%F\" (
@@ -86,6 +83,8 @@ for /f "delims=" %%F in ('dir /a /b "%WHEELHOUSE_DIR%" 2^>nul') do (
     )
   )
 )
+"%RUNTIME_DIR%\python.exe" -m pip install --disable-pip-version-check --upgrade setuptools wheel packaging
+if errorlevel 1 goto ERR_BOOTSTRAP
 "%RUNTIME_DIR%\python.exe" -m pip wheel --disable-pip-version-check --prefer-binary --no-build-isolation --timeout 120 --retries 12 -r "%REQ_FILE%" -w "%WHEELHOUSE_DIR%"
 if errorlevel 1 goto ERR_WHEELS
 
@@ -93,17 +92,13 @@ echo [7/8] Installing packages from local wheelhouse...
 "%RUNTIME_DIR%\python.exe" -m pip install --disable-pip-version-check --no-index --find-links="%WHEELHOUSE_DIR%" -r "%REQ_FILE%"
 if errorlevel 1 goto ERR_INSTALL
 
-echo [8/8] Verifying orchestrator + GUI runtime...
-"%RUNTIME_DIR%\python.exe" -c "import yaml, nicegui, webview, psutil, rich; print('OK orchestrator GUI deps')"
+echo [8/8] Verifying the packages of the engine...
+"%RUNTIME_DIR%\python.exe" -c "import yaml, pytest; print('OK the packages of the engine')"
 if errorlevel 1 goto ERR_VERIFY
-if exist "%GUI_SMOKE%" (
-  "%RUNTIME_DIR%\python.exe" "%GUI_SMOKE%" --smoke
-  if errorlevel 1 goto ERR_VERIFY
-)
 
 echo.
 echo [SUCCESS] Portable environment is ready.
-echo [INFO] Full stack Doctor is step [04], after VapourSynth/FFmpeg/MLRT install.
+echo [INFO] Full stack Doctor is step [71], after VapourSynth/FFmpeg install.
 echo [INFO] Release licensing is generated later from the finalized release contents.
 if not defined AUDION_NO_PAUSE pause
 exit /b 0
@@ -122,6 +117,10 @@ exit /b %errorlevel%
 set "PTH_FILE=%~1"
 if not exist "%PTH_FILE%" exit /b 1
 set "TMP_FILE=%PTH_FILE%.tmp"
+set "HAS_PROJECT_ROOT=0"
+for /f "usebackq delims=" %%L in ("%PTH_FILE%") do (
+  if "%%L"==".." set "HAS_PROJECT_ROOT=1"
+)
 break > "%TMP_FILE%"
 for /f "usebackq delims=" %%L in ("%PTH_FILE%") do (
   set "LINE=%%L"
@@ -129,6 +128,10 @@ for /f "usebackq delims=" %%L in ("%PTH_FILE%") do (
     >>"%TMP_FILE%" echo import site
   ) else (
     >>"%TMP_FILE%" echo %%L
+  )
+  if "!LINE!"=="." if "!HAS_PROJECT_ROOT!"=="0" (
+    >>"%TMP_FILE%" echo ..
+    set "HAS_PROJECT_ROOT=1"
   )
 )
 move /y "%TMP_FILE%" "%PTH_FILE%" >nul
@@ -190,6 +193,7 @@ if not defined AUDION_NO_PAUSE pause
 exit /b 1
 
 :ERR_VERIFY
-echo [ERROR] Orchestrator / GUI runtime verification failed.
+echo [ERROR] The packages of the engine do not import.
 if not defined AUDION_NO_PAUSE pause
 exit /b 1
+

@@ -10,13 +10,14 @@
 #   AUDION_VS_INPUT             absolute path to source
 # Optional:
 #   AUDION_VS_SIGMA             float, BM3D luma sigma.        default 2.0  (range 1.0..3.5)
-#   AUDION_VS_USE_CUDA          "1" | "0".                     default "0"
 #   AUDION_VS_DEBAND_RANGE      int, neo_f3kdb range.          default 14
 #   AUDION_VS_GRAIN_SHADOW      float, grain in shadow zone.   default 1.5
 #   AUDION_VS_GRAIN_MID         float, grain in mid-tones.     default 0.9
 #   AUDION_VS_GRAIN_HIGH        float, grain in highlights.    default 0.4
 #   AUDION_VS_SHADOW_THRESHOLD  float [0..1], shadow zone end. default 0.30
 #   AUDION_VS_HIGH_THRESHOLD    float [0..1], highlight start. default 0.65
+#   AUDION_VS_NOISE             "auto" | "fixed".              default "auto"
+#                                  auto: the noise measured in the source raises the sigma (never below SIGMA)
 #
 import os
 import vapoursynth as vs
@@ -26,7 +27,6 @@ import audion_lib as al
 
 INPUT             = os.environ["AUDION_VS_INPUT"]
 SIGMA             = float(os.environ.get("AUDION_VS_SIGMA", "2.0"))
-USE_CUDA          = os.environ.get("AUDION_VS_USE_CUDA", "0") == "1"
 DEBAND_RANGE      = int(os.environ.get("AUDION_VS_DEBAND_RANGE", "14"))
 GRAIN_SHADOW      = float(os.environ.get("AUDION_VS_GRAIN_SHADOW", "1.5"))
 GRAIN_MID         = float(os.environ.get("AUDION_VS_GRAIN_MID",    "0.9"))
@@ -35,22 +35,19 @@ SHADOW_THRESHOLD  = float(os.environ.get("AUDION_VS_SHADOW_THRESHOLD", "0.30"))
 HIGH_THRESHOLD    = float(os.environ.get("AUDION_VS_HIGH_THRESHOLD",   "0.65"))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
+src = al.load_source(INPUT)
 
-
-src = _load(INPUT)
+# BM3D's sigma is a standard deviation: it follows the measured noise, luma and chroma each their own.
+NOISE = al.measured_noise(src)
+SIGMA_Y = al.by_noise(SIGMA, NOISE and NOISE[0])
+SIGMA_C = al.by_noise(SIGMA * 0.6, al.chroma_noise(NOISE))
+al.report_noise("filmic_rebuild", NOISE, f"BM3D sigma {SIGMA_Y:.2f} / {SIGMA_C:.2f}")
 
 # ============== STAGE 1: BM3D denoise (float) ==============
 flt = core.fmtc.bitdepth(src, bits=32, flt=1)
-sigma_yuv = [SIGMA, SIGMA * 0.6, SIGMA * 0.6]
-if USE_CUDA:
-    flt = al.bm3d_auto(flt, sigma=sigma_yuv, radius=0)
-else:
-    flt = core.bm3dcpu.BM3D(flt, sigma=sigma_yuv, radius=0)
+sigma_yuv = [SIGMA_Y, SIGMA_C, SIGMA_C]
+# The device - the processor or the video card - is AUDION_VS_BM3D, which the service sets from PROCESSING.
+flt = al.bm3d(flt, sigma=sigma_yuv, radius=0)
 
 # ============== STAGE 2: Deband (16-bit int) ==============
 clip16 = core.fmtc.bitdepth(flt, bits=16)
@@ -94,7 +91,7 @@ mask_mid = core.std.Expr(
 def _grain(c, var):
     if var <= 0:
         return c
-    return core.grain.Add(c, var=var * 1.5, uvar=var * 0.4, constant=False)
+    return al.add_grain(c, var=var * 1.5, uvar=var * 0.4, constant=False)
 
 g_shadow = _grain(clip16, GRAIN_SHADOW)
 g_mid    = _grain(clip16, GRAIN_MID)
@@ -107,5 +104,5 @@ result = core.std.MaskedMerge(result, g_high,   mask_high)
 
 # ============== Output 10-bit ==============
 out = core.fmtc.bitdepth(result, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

@@ -10,27 +10,29 @@
 # Optional:
 #   AUDION_VS_STRENGTH    "light" | "medium"   default "light"
 #                            DFTTest sigma: light=3.0, medium=6.0
+#   AUDION_VS_NOISE       "auto" | "fixed"     default "auto"
+#                            auto: the noise measured in the source raises the sigma (never below the table)
 #
 import os
 import vapoursynth as vs
 core = vs.core
+
+import audion_lib as al
 
 INPUT    = os.environ["AUDION_VS_INPUT"]
 STRENGTH = os.environ.get("AUDION_VS_STRENGTH", "light").lower()
 SIGMA    = {"light": 3.0, "medium": 6.0}.get(STRENGTH, 3.0)
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
+clip = al.load_source(INPUT)
 
-
-clip = _load(INPUT)
+# DFTTest's sigma is a power: it follows the square of the measured noise.
+NOISE = al.measured_noise(clip)
+SIGMA = al.by_noise(SIGMA, NOISE and NOISE[0], power=2)
+al.report_noise("pregrade_prep", NOISE, f"DFTTest sigma {SIGMA:.1f}")
 
 # Very mild DFTTest on all planes -- just enough to take the edge off shot noise
-clip = core.dfttest.DFTTest(clip, sigma=SIGMA, tbsize=3, planes=[0, 1, 2])
+clip = al.dfttest(clip, sigma=SIGMA, tbsize=3, planes=[0, 1, 2])
 
-clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 clip.set_output()

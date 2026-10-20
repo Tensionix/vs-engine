@@ -24,8 +24,6 @@ if errorlevel 1 (
   set "MENU_MODE=FZF"
 )
 
-call :DETECT_GPU
-
 :MAIN
 cls
 echo ======================================================================
@@ -34,7 +32,6 @@ echo ======================================================================
 echo Root:      %BASE_DIR%
 echo Python:    %PYTHON_CMD% %PYTHON_ARGS%
 echo Menu mode: %MENU_MODE%
-echo GPU:       %GPU_STATUS%
 echo Tip:       these presets need extra plugins (havsfunc, mvtools, tivtc).
 echo            Run builder_main.cmd -^> [12] INSTALL VS PLUGINS once.
 echo.
@@ -55,11 +52,13 @@ goto FALLBACK_MENU
 >>"%MENU_FILE%" echo [05] Deblock H.264 artefacts    ^| deblock         ^| over-compressed YouTube / WhatsApp / broadcast
 >>"%MENU_FILE%" echo [06] Dehaze / local contrast    ^| dehaze          ^| clarity, no halos, no color shift
 >>"%MENU_FILE%" echo.
->>"%MENU_FILE%" echo === AI / ML  (vs-mlrt; TensorRT on NVIDIA, DirectML elsewhere) =====
->>"%MENU_FILE%" echo [07] Real-ESRGAN 2x upscale     ^| esrgan          ^| ML upscale 1080p -^> 4K, sharp face/fabric texture
->>"%MENU_FILE%" echo [08] Soft HD Rebuild 2X         ^| soft_hd         ^| cleanup + ML rebuild for soft / undersampled HD
->>"%MENU_FILE%" echo [09] RIFE 60fps interpolation   ^| rife            ^| ML frame interp 24-^>60fps, smoother than Optical Flow
->>"%MENU_FILE%" echo [10] DPIR ML denoise            ^| dpir            ^| heavy noise / high-ISO without losing texture
+>>"%MENU_FILE%" echo === Clean upscale =================================================
+>>"%MENU_FILE%" echo [07] NNEDI3 2x upscale         ^| nnedi3_upscale  ^| deterministic non-ML enlargement
+>>"%MENU_FILE%" echo.
+>>"%MENU_FILE%" echo === Neural networks (need MLRT: SETUP, NVIDIA RTX) ==================
+>>"%MENU_FILE%" echo [08] DPIR denoise               ^| dpir_denoise    ^| heavy noise / high ISO without losing texture
+>>"%MENU_FILE%" echo [09] Real-ESRGAN 2x             ^| realesrgan_2x   ^| neural 2x upscale, sharp faces and fabric texture
+>>"%MENU_FILE%" echo [10] Soft HD rebuild 2x         ^| soft_hd_2x      ^| cleanup + Real-ESRGAN for soft / undersampled HD
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Tools =========================================================
 >>"%MENU_FILE%" echo [11] List encoders              ^| list_encoders   ^| H.264 / H.265 / ProRes / DNxHR
@@ -84,10 +83,10 @@ if /I "%RAW%"=="mcdegrain"      goto MCDEGRAIN
 if /I "%RAW%"=="derainbow"      goto DERAINBOW
 if /I "%RAW%"=="deblock"        goto DEBLOCK
 if /I "%RAW%"=="dehaze"         goto DEHAZE
-if /I "%RAW%"=="esrgan"         goto ESRGAN
-if /I "%RAW%"=="soft_hd"        goto SOFT_HD
-if /I "%RAW%"=="rife"           goto RIFE
-if /I "%RAW%"=="dpir"           goto DPIR
+if /I "%RAW%"=="nnedi3_upscale"  goto NNEDI3_UPSCALE
+if /I "%RAW%"=="dpir_denoise"   goto DPIR_DENOISE
+if /I "%RAW%"=="realesrgan_2x"  goto REALESRGAN_2X
+if /I "%RAW%"=="soft_hd_2x"     goto SOFT_HD_2X
 if /I "%RAW%"=="list_encoders"  goto LIST_ENCODERS
 if /I "%RAW%"=="doctor"         goto DOCTOR
 if /I "%RAW%"=="open_input"     goto OPEN_INPUT
@@ -106,11 +105,12 @@ echo [4] Derainbow / decross      (NTSC composite chroma)
 echo === Compression rescue ===
 echo [5] Deblock H.264 artefacts  (YouTube / WhatsApp / SD broadcast)
 echo [6] Dehaze / local contrast  (no halos, no color shift)
-echo === AI / ML (vs-mlrt) ===
-echo [7] Real-ESRGAN 2x upscale   (1080p -^> 4K, sharp texture)
-echo [8] Soft HD Rebuild 2X       (cleanup + ML rebuild for soft HD)
-echo [9] RIFE 60fps interpolation (24-^>60fps, smoother motion)
-echo [A] DPIR ML denoise          (heavy noise / high-ISO)
+echo === Clean upscale ===
+echo [7] NNEDI3 2x upscale        (deterministic non-ML enlargement)
+echo === Neural networks (need MLRT: SETUP, NVIDIA RTX) ===
+echo [8] DPIR denoise             (heavy noise / high ISO)
+echo [9] Real-ESRGAN 2x           (neural 2x upscale, sharp texture)
+echo [A] Soft HD rebuild 2x       (cleanup + Real-ESRGAN for soft HD)
 echo.
 echo === Tools ===
 echo [B] List encoders
@@ -127,10 +127,10 @@ if errorlevel 14 goto OPEN_OUTPUT
 if errorlevel 13 goto OPEN_INPUT
 if errorlevel 12 goto DOCTOR
 if errorlevel 11 goto LIST_ENCODERS
-if errorlevel 10 goto DPIR
-if errorlevel 9  goto RIFE
-if errorlevel 8  goto SOFT_HD
-if errorlevel 7  goto ESRGAN
+if errorlevel 10 goto SOFT_HD_2X
+if errorlevel 9  goto REALESRGAN_2X
+if errorlevel 8  goto DPIR_DENOISE
+if errorlevel 7  goto NNEDI3_UPSCALE
 if errorlevel 6  goto DEHAZE
 if errorlevel 5  goto DEBLOCK
 if errorlevel 4  goto DERAINBOW
@@ -151,7 +151,7 @@ call :ASK_FIELD_ORDER
 call :ASK_QTGMC_PRESET
 call :ASK_OUTPUT_FPS
 call :ASK_ENCODER
-call :RUN_PRESET qtgmc_deinterlace --field-order %FIELD_ORDER% --qtgmc-preset "%QPRESET%" --output-fps %OUTPUT_FPS%
+call :RUN_PRESET qtgmc_deinterlace field_order %FIELD_ORDER% preset "%QPRESET%" output_fps %OUTPUT_FPS%
 goto MAIN
 
 :TIVTC
@@ -168,7 +168,7 @@ call :ASK_RADIUS_3
 call :ASK_THSAD
 call :ASK_BLKSIZE
 call :ASK_ENCODER
-call :RUN_PRESET mvtools_mcdegrain --radius %RADIUS% --thsad %THSAD% --blksize %BLKSIZE%
+call :RUN_PRESET mvtools_mcdegrain radius %RADIUS% thsad %THSAD% blksize %BLKSIZE%
 goto MAIN
 
 :DERAINBOW
@@ -177,7 +177,7 @@ call :ASK_OUTPUT_FILE derainbow
 call :ASK_DERAINBOW_STRENGTH
 call :ASK_BLKSIZE
 call :ASK_ENCODER
-call :RUN_PRESET derainbow_decross --strength %STRENGTH% --blksize %BLKSIZE%
+call :RUN_PRESET derainbow_decross strength %STRENGTH% blksize %BLKSIZE%
 goto MAIN
 
 :DEBLOCK
@@ -185,7 +185,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE deblock
 call :ASK_DEBLOCK_QUANT
 call :ASK_ENCODER
-call :RUN_PRESET deblock_h264_artefacts --quant1 %QUANT1% --quant2 %QUANT2%
+call :RUN_PRESET deblock_h264_artefacts quant1 %QUANT1% quant2 %QUANT2%
 goto MAIN
 
 :DEHAZE
@@ -194,54 +194,58 @@ call :ASK_OUTPUT_FILE dehaze
 call :ASK_DEHAZE_STRENGTH
 call :ASK_DEHAZE_RADIUS
 call :ASK_ENCODER
-call :RUN_PRESET dehaze_local_contrast --strength %STRENGTH% --radius %RADIUS%
+call :RUN_PRESET dehaze_local_contrast strength %STRENGTH% radius %RADIUS%
 goto MAIN
 
-:ESRGAN
+:NNEDI3_UPSCALE
 call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE esrgan
+call :ASK_OUTPUT_FILE nnedi3_2x
+call :ASK_NNEDI3_QUALITY
+call :ASK_NNEDI3_CHROMA
+call :ASK_ENCODER
+call :RUN_PRESET nnedi3_upscale_2x quality %QUALITY% chroma %CHROMA%
+goto MAIN
+
+:DPIR_DENOISE
+call :NOTE_MLRT
+call :ASK_INPUT_FILE
+call :ASK_OUTPUT_FILE dpir_denoise
+call :ASK_DPIR_STRENGTH
+call :ASK_DPIR_MODEL
+call :ASK_DPIR_TILE
+call :ASK_VS_ACCEL
+call :ASK_ENCODER
+call :RUN_PRESET dpir_denoise strength %STRENGTH% model %MODEL% tile %TILE% vs_accel %VS_ACCEL%
+goto MAIN
+
+:REALESRGAN_2X
+call :NOTE_MLRT
+call :ASK_INPUT_FILE
+call :ASK_OUTPUT_FILE realesrgan_2x
 call :ASK_ESRGAN_MODEL
 call :ASK_ML_TILE
-call :ASK_ML_BACKEND
+call :ASK_ML_TILE_PAD
+call :ASK_VS_ACCEL
 call :ASK_ENCODER
-call :RUN_PRESET vsmlrt_realesrgan_2x --model %MODEL% --tile %TILE% --backend %BACKEND%
+call :RUN_PRESET vsmlrt_realesrgan_2x model %MODEL% tile %TILE% tile_pad %TILE_PAD% vs_accel %VS_ACCEL%
 goto MAIN
 
-:SOFT_HD
+:SOFT_HD_2X
+call :NOTE_MLRT
 call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE soft_hd_2x
 call :ASK_SOFT_HD_REBUILD
 call :ASK_SOFT_HD_CLEANUP
 call :ASK_ESRGAN_MODEL
 call :ASK_ML_TILE
-call :ASK_ML_BACKEND
+call :ASK_ML_TILE_PAD
+call :ASK_VS_ACCEL
 call :ASK_ENCODER
-call :RUN_PRESET soft_hd_rebuild_2x --rebuild %REBUILD% --cleanup %CLEANUP% --model %MODEL% --tile %TILE% --backend %BACKEND%
-goto MAIN
-
-:RIFE
-call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE rife
-call :ASK_RIFE_FPS_MUL
-call :ASK_RIFE_MODEL
-call :ASK_ML_BACKEND
-call :ASK_ENCODER
-call :RUN_PRESET vsmlrt_rife_60fps --fps-mul %FPS_MUL% --model %MODEL% --backend %BACKEND%
-goto MAIN
-
-:DPIR
-call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE dpir
-call :ASK_DPIR_STRENGTH
-call :ASK_DPIR_MODEL
-call :ASK_ML_TILE
-call :ASK_ML_BACKEND
-call :ASK_ENCODER
-call :RUN_PRESET dpir_denoise --strength %STRENGTH% --model %MODEL% --tile %TILE% --backend %BACKEND%
+call :RUN_PRESET soft_hd_rebuild_2x rebuild %REBUILD% cleanup %CLEANUP% model %MODEL% tile %TILE% tile_pad %TILE_PAD% vs_accel %VS_ACCEL%
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -272,14 +276,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Press Enter to use the project input folder, or type a file/folder path.
 set /p SRC_PATH=Input file or folder [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Output file [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Output folder [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_FIELD_ORDER
@@ -426,98 +432,36 @@ if /I "%RADIUS%"=="3" set "RADIUS=12"
 if /I "%RADIUS%"=="4" set "RADIUS=16"
 goto :eof
 
-:ASK_ESRGAN_MODEL
-set "MODEL="
+:ASK_NNEDI3_QUALITY
+set "QUALITY="
 echo.
-echo Real-ESRGAN model variant:
-echo   1 - general-x4v3       (default; live-action / mixed content)
-echo   2 - animevideov3       (sharp on cartoons / 2D animation)
-echo   3 - general-wdn-x4v3   (general + extra denoise)
-echo   4 - animejanaiV2-L1    (newer anime, lighter)
-echo   5 - animejanaiV2-L2    (newer anime, balanced)
-echo   6 - animejanaiV2-L3    (newer anime, heaviest)
-set /p MODEL=Select [1] :
-if not defined MODEL set "MODEL=general-x4v3"
-if /I "%MODEL%"=="1" set "MODEL=general-x4v3"
-if /I "%MODEL%"=="2" set "MODEL=animevideov3"
-if /I "%MODEL%"=="3" set "MODEL=general-wdn-x4v3"
-if /I "%MODEL%"=="4" set "MODEL=animejanaiV2-L1"
-if /I "%MODEL%"=="5" set "MODEL=animejanaiV2-L2"
-if /I "%MODEL%"=="6" set "MODEL=animejanaiV2-L3"
+echo NNEDI3 quality / speed:
+echo   1 - fast      (lighter)
+echo   2 - balanced  (default)
+echo   3 - best      (slower, cleaner edges)
+set /p QUALITY=Select [2] :
+if not defined QUALITY set "QUALITY=balanced"
+if /I "%QUALITY%"=="1" set "QUALITY=fast"
+if /I "%QUALITY%"=="2" set "QUALITY=balanced"
+if /I "%QUALITY%"=="3" set "QUALITY=best"
 goto :eof
 
-:ASK_SOFT_HD_REBUILD
-set "REBUILD="
+:ASK_NNEDI3_CHROMA
+set "CHROMA="
 echo.
-echo Soft HD rebuild amount:
-echo   1 - conservative  (safer edges, fewer halos)
-echo   2 - balanced      (default)
-echo   3 - aggressive    (very soft sources)
-set /p REBUILD=Select [2] :
-if not defined REBUILD set "REBUILD=balanced"
-if /I "%REBUILD%"=="1" set "REBUILD=conservative"
-if /I "%REBUILD%"=="2" set "REBUILD=balanced"
-if /I "%REBUILD%"=="3" set "REBUILD=aggressive"
+echo Chroma upscale:
+echo   1 - spline36  (default, safe)
+echo   2 - nnedi3    (sharper, slower)
+set /p CHROMA=Select [1] :
+if not defined CHROMA set "CHROMA=spline36"
+if /I "%CHROMA%"=="1" set "CHROMA=spline36"
+if /I "%CHROMA%"=="2" set "CHROMA=nnedi3"
 goto :eof
 
-:ASK_SOFT_HD_CLEANUP
-set "CLEANUP="
+:NOTE_MLRT
 echo.
-echo Pre-ML cleanup:
-echo   1 - light
-echo   2 - medium  (default)
-echo   3 - strong
-set /p CLEANUP=Select [2] :
-if not defined CLEANUP set "CLEANUP=medium"
-if /I "%CLEANUP%"=="1" set "CLEANUP=light"
-if /I "%CLEANUP%"=="2" set "CLEANUP=medium"
-if /I "%CLEANUP%"=="3" set "CLEANUP=strong"
-goto :eof
-
-:ASK_RIFE_MODEL
-set "MODEL="
-echo.
-echo RIFE model version:
-echo   1 - rife_v4.6  (default; balanced, modern)
-echo   2 - rife_v4.4  (older but proven)
-echo   3 - rife_v4.9  (newest in vs-mlrt)
-set /p MODEL=Select [1] :
-if not defined MODEL set "MODEL=rife_v4.6"
-if /I "%MODEL%"=="1" set "MODEL=rife_v4.6"
-if /I "%MODEL%"=="2" set "MODEL=rife_v4.4"
-if /I "%MODEL%"=="3" set "MODEL=rife_v4.9"
-goto :eof
-
-:ASK_RIFE_FPS_MUL
-set "FPS_MUL="
-echo.
-echo Frame rate multiplier:
-echo   1 - 2     (24 -^> 48 fps; smooth playback)
-echo   2 - 2.5   (24 -^> 60 fps; default for 60Hz monitors)
-echo   3 - 3     (24 -^> 72 fps)
-echo   4 - 4     (24 -^> 96 fps; cinematic slow-mo)
-set /p FPS_MUL=Select [2] :
-if not defined FPS_MUL set "FPS_MUL=2.5"
-if /I "%FPS_MUL%"=="1" set "FPS_MUL=2"
-if /I "%FPS_MUL%"=="2" set "FPS_MUL=2.5"
-if /I "%FPS_MUL%"=="3" set "FPS_MUL=3"
-if /I "%FPS_MUL%"=="4" set "FPS_MUL=4"
-goto :eof
-
-:ASK_DPIR_MODEL
-set "MODEL="
-echo.
-echo DPIR model variant:
-echo   1 - drunet_color              (default; color video)
-echo   2 - drunet_gray               (B^&W footage)
-echo   3 - drunet_deblocking_color   (specifically for JPEG/MPEG block artifacts)
-echo   4 - drunet_deblocking_gray    (B^&W with block artifacts)
-set /p MODEL=Select [1] :
-if not defined MODEL set "MODEL=drunet_color"
-if /I "%MODEL%"=="1" set "MODEL=drunet_color"
-if /I "%MODEL%"=="2" set "MODEL=drunet_gray"
-if /I "%MODEL%"=="3" set "MODEL=drunet_deblocking_color"
-if /I "%MODEL%"=="4" set "MODEL=drunet_deblocking_gray"
+echo [INFO] Neural preset: needs MLRT - SETUP of the window or vs_cli.cmd run --operation install_mlrt (NVIDIA RTX).
+echo        Without MLRT the run stops at [PREFLIGHT] FAIL MLRT.
 goto :eof
 
 :ASK_DPIR_STRENGTH
@@ -538,6 +482,52 @@ if /I "%STRENGTH%"=="4" set "STRENGTH=25"
 if /I "%STRENGTH%"=="5" set "STRENGTH=50"
 goto :eof
 
+:ASK_DPIR_MODEL
+set "MODEL="
+echo.
+echo DPIR model variant:
+echo   1 - drunet_color              (default; color video)
+echo   2 - drunet_gray               (brightness only; color kept as is)
+echo   3 - drunet_deblocking_color   (also JPEG/MPEG block artifacts)
+echo   4 - drunet_deblocking_gray    (blocks, brightness only)
+set /p MODEL=Select [1] :
+if not defined MODEL set "MODEL=drunet_color"
+if /I "%MODEL%"=="1" set "MODEL=drunet_color"
+if /I "%MODEL%"=="2" set "MODEL=drunet_gray"
+if /I "%MODEL%"=="3" set "MODEL=drunet_deblocking_color"
+if /I "%MODEL%"=="4" set "MODEL=drunet_deblocking_gray"
+goto :eof
+
+:ASK_DPIR_TILE
+set "TILE="
+echo.
+echo ML inference tile size (smaller = less VRAM, slower):
+echo   1 - 256   (low VRAM; 4-6 GB cards)
+echo   2 - 384   (default; 8 GB cards)
+echo   3 - 512   (faster; 12 GB+ cards)
+set /p TILE=Select [2] :
+if not defined TILE set "TILE=384"
+if /I "%TILE%"=="1" set "TILE=256"
+if /I "%TILE%"=="2" set "TILE=384"
+if /I "%TILE%"=="3" set "TILE=512"
+goto :eof
+
+:ASK_ESRGAN_MODEL
+set "MODEL="
+echo.
+echo Real-ESRGAN model (every one is made for drawn animation):
+echo   1 - animevideov3       (default; the lightest)
+echo   2 - animejanaiV2-L1    (newer anime, lighter)
+echo   3 - animejanaiV2-L2    (newer anime, balanced)
+echo   4 - animejanaiV2-L3    (newer anime, heaviest)
+set /p MODEL=Select [1] :
+if not defined MODEL set "MODEL=animevideov3"
+if /I "%MODEL%"=="1" set "MODEL=animevideov3"
+if /I "%MODEL%"=="2" set "MODEL=animejanaiV2-L1"
+if /I "%MODEL%"=="3" set "MODEL=animejanaiV2-L2"
+if /I "%MODEL%"=="4" set "MODEL=animejanaiV2-L3"
+goto :eof
+
 :ASK_ML_TILE
 set "TILE="
 echo.
@@ -554,29 +544,60 @@ if /I "%TILE%"=="3" set "TILE=512"
 if /I "%TILE%"=="4" set "TILE=768"
 goto :eof
 
-:ASK_ML_BACKEND
-set "BACKEND="
+:ASK_ML_TILE_PAD
+set "TILE_PAD="
 echo.
-echo vs-mlrt inference backend:
-echo   1 - auto      (default; TRT -^> ORT_DML -^> ORT_CPU)
-echo   2 - trt       (TensorRT; NVIDIA-only, fastest)
-echo   3 - ort_dml   (DirectML; any DX12 GPU including Intel/AMF)
-echo   4 - ort_cpu   (CPU fallback; slowest but always works)
-if "%HAS_NVIDIA%"=="0" echo   [INFO] No NVIDIA GPU detected -- "trt" will fail; "auto" picks ORT_DML / ORT_CPU.
-set /p BACKEND=Select [1] :
-if not defined BACKEND set "BACKEND=auto"
-if /I "%BACKEND%"=="1" set "BACKEND=auto"
-if /I "%BACKEND%"=="2" set "BACKEND=trt"
-if /I "%BACKEND%"=="3" set "BACKEND=ort_dml"
-if /I "%BACKEND%"=="4" set "BACKEND=ort_cpu"
-if /I "%BACKEND%"=="trt" if not "%HAS_NVIDIA%"=="1" (
-  echo.
-  echo [WARN] "trt" picked but nvidia-smi did not detect a GPU.
-  echo        TensorRT requires NVIDIA hardware -- the run will fail after engine init.
-  echo        Falling back to "auto" so vs-mlrt can pick ORT_DML / ORT_CPU at runtime.
-  set "BACKEND=auto"
-  if not defined AUDION_NO_PAUSE pause
-)
+echo Tile overlap in pixels (hides the seams between tiles):
+echo   1 - 8    (less overlap, a little faster)
+echo   2 - 16   (default)
+echo   3 - 32   (wider overlap, safer seams, slower)
+set /p TILE_PAD=Select [2] :
+if not defined TILE_PAD set "TILE_PAD=16"
+if /I "%TILE_PAD%"=="1" set "TILE_PAD=8"
+if /I "%TILE_PAD%"=="2" set "TILE_PAD=16"
+if /I "%TILE_PAD%"=="3" set "TILE_PAD=32"
+goto :eof
+
+:ASK_SOFT_HD_REBUILD
+set "REBUILD="
+echo.
+echo Soft HD rebuild amount:
+echo   1 - conservative  (safer edges, fewer halos)
+echo   2 - balanced      (default)
+echo   3 - aggressive    (very soft sources)
+set /p REBUILD=Select [2] :
+if not defined REBUILD set "REBUILD=balanced"
+if /I "%REBUILD%"=="1" set "REBUILD=conservative"
+if /I "%REBUILD%"=="2" set "REBUILD=balanced"
+if /I "%REBUILD%"=="3" set "REBUILD=aggressive"
+goto :eof
+
+:ASK_SOFT_HD_CLEANUP
+set "CLEANUP="
+echo.
+echo Pre-ML cleanup (so the network does not enlarge noise and blocks):
+echo   1 - light
+echo   2 - medium  (default)
+echo   3 - strong
+set /p CLEANUP=Select [2] :
+if not defined CLEANUP set "CLEANUP=medium"
+if /I "%CLEANUP%"=="1" set "CLEANUP=light"
+if /I "%CLEANUP%"=="2" set "CLEANUP=medium"
+if /I "%CLEANUP%"=="3" set "CLEANUP=strong"
+goto :eof
+
+:ASK_VS_ACCEL
+set "VS_ACCEL="
+echo.
+echo Where the neural network runs:
+echo   1 - auto  (default; TensorRT on NVIDIA RTX, else DirectML on the video card, else the CPU)
+echo   2 - cpu   (ONNX Runtime on the CPU; works everywhere, many times slower)
+echo   3 - gpu   (the video card: TensorRT on NVIDIA RTX, DirectML on another card)
+set /p VS_ACCEL=Select [1] :
+if not defined VS_ACCEL set "VS_ACCEL=auto"
+if /I "%VS_ACCEL%"=="1" set "VS_ACCEL=auto"
+if /I "%VS_ACCEL%"=="2" set "VS_ACCEL=cpu"
+if /I "%VS_ACCEL%"=="3" set "VS_ACCEL=gpu"
 goto :eof
 
 :ASK_ENCODER
@@ -614,7 +635,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -624,7 +646,7 @@ echo       input:   %SRC_PATH%
 echo       output:  %DST_PATH%
 echo       encoder: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette restoration --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof
@@ -677,23 +699,6 @@ if not errorlevel 1 (
 exit /b 1
 :PY_OK
 exit /b 0
-
-:DETECT_GPU
-rem Probe NVIDIA via nvidia-smi (ships with R525+ driver). Result drives the
-rem ML-backend sanity guard so users don't pick "trt" on a non-NVIDIA box and
-rem waste minutes on a doomed TensorRT init.
-set "HAS_NVIDIA=0"
-set "GPU_STATUS=no NVIDIA detected -- vs-mlrt will use DirectML / CPU"
-nvidia-smi --query-gpu=name --format=csv,noheader >nul 2>&1
-if not errorlevel 1 (
-  set "HAS_NVIDIA=1"
-  for /f "usebackq delims=" %%g in (`nvidia-smi --query-gpu^=name --format^=csv^,noheader 2^>nul`) do (
-    set "GPU_STATUS=NVIDIA %%g (TensorRT available)"
-    goto :GPU_DONE
-  )
-)
-:GPU_DONE
-goto :eof
 
 :RESOLVE_FZF
 set "FZF_CMD="

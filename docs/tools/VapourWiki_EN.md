@@ -1,551 +1,533 @@
-# VapourWiki — Audion VS Engine preset reference (EN)
+# VapourWiki — Audion VS Engine presets
 
-Full English reference for all 28 presets across 4 palettes. Starts with a **decision tree** ("which preset for which job"), then per-preset detail: what it does, what material it suits, key parameters, recommended encoder.
+The 28 presets of Audion VS Engine in 4 palettes: which one for which footage, what each does, its key settings and the encoder that suits it. In the window (`Start.exe`) a preset is a switch in a group of its palette; in the console it is `vs_cli.cmd run --operation <id> --set <field>=<value>`.
+How to work in the window and the console — [USER_GUIDE_EN.md](../USER_GUIDE_EN.md); every field with its range and choices — [OPERATIONS_EN.md](../OPERATIONS_EN.md).
 
-> Russian counterpart: `VapourWiki_RU.md` (this document mirrors it). Per-preset technical docstrings live inside each `.vpy` file in `system_core/presets/<palette>/`.
+## Which preset for which task
 
----
+MLRT marks a neural preset: it needs vs-mlrt (section «The neural presets and MLRT»).
 
-## Decision tree — which preset for which job
-
-Read top-down: the first matching case is your preset.
-
-| Material symptom | Preset | Palette |
+| Footage or task | Preset | Palette / group |
 |---|---|---|
-| Interlaced legacy (DV, HDV, VHS captures, broadcast TS) | **`qtgmc_deinterlace`** | restoration |
-| NTSC 29.97 fps with 3:2 pulldown (telecined film) | **`tivtc_ivtc`** | restoration |
-| High-ISO / night noise, must keep detail | **`mvtools_mcdegrain`** | restoration |
-| Rainbow / dot crawl on VHS-rip or composite capture | **`derainbow_decross`** | restoration |
-| Over-compressed H.264/MPEG (YouTube-rip, WhatsApp, SD broadcast) | **`deblock_h264_artefacts`** | restoration |
-| Haze / flat low-contrast — need to "lift" the picture | **`dehaze_local_contrast`** | restoration |
-| ML upscale 1080p → ~4K (sharp faces, fabric texture) | **`vsmlrt_realesrgan_2x`** | restoration |
-| ML interpolation 24 → 60fps (smoother than Optical Flow) | **`vsmlrt_rife_60fps`** | restoration |
-| ML denoise of heavy noise / high-ISO without texture loss | **`dpir_denoise`** | restoration |
-| Digital noise in shadows only ("night" digital footage) | **`shadow_denoise_sota`** ⭐ | precision |
-| Light uniform noise, hardware-agnostic (no CUDA/OpenCL) | `mild_denoise` | precision |
-| Chroma noise only (dirty blue channel) | `chroma_cleanup` | precision |
-| Banding in gradients (skies, walls) | `deband_safe` or `deband_fine_grain` | precision |
-| One preset for everything filmic | **`filmic_rebuild`** ⭐ | precision |
-| Prep for color grading in DaVinci | `pregrade_prep` | precision |
-| Clean archival master without grain | `archive_clean` | precision |
-| Subtle filmic look, safe default | `cinematic` | film_looks |
-| Specific 35mm Kodak (250D / 500T / 50D) | `film_35mm` | film_looks |
-| 16mm organic, lifted shadows | `film_16mm` | film_looks |
-| Super 8, faded 70s, heavy grain | `super8` | film_looks |
-| High-contrast desaturated (Se7en, Saving Private Ryan) | `bleach_bypass` | film_looks |
-| Large-format IMAX feel — minimal grain, gate weave | **`imax_70mm`** | film_looks |
-| Hollywood cinemascope (horizontal blue lens flares + teal shadows) | **`anamorphic_scope`** | film_looks |
-| VHS / CRT aesthetic | `vhs_crt` | retro |
-| 90s amateur camcorder | `camcorder_90s` | retro |
-| 1970s Polaroid SX-70 (candy-bloom, warm cream) | **`polaroid`** | retro |
+| Interlaced source: DV, HDV, captured VHS, broadcast TS; combs on motion | `qtgmc_deinterlace` | RESTORATION / Interlace |
+| NTSC 29.97 fps with 3:2 pulldown: film transferred to video | `tivtc_ivtc` | RESTORATION / Interlace |
+| Light, even noise; little is known about the footage | `mild_denoise` | PRECISION / Denoise |
+| Digital noise in the shadows of night and low-light footage | `shadow_denoise_sota` | PRECISION / Denoise |
+| Colour noise only: colour blotches, a dirty blue channel | `chroma_cleanup` | PRECISION / Denoise |
+| High-ISO noise; the texture of skin and fabric must stay | `mvtools_mcdegrain` | RESTORATION / Noise |
+| Very heavy noise where BM3D smears the picture | `dpir_denoise` (MLRT) | RESTORATION / Noise |
+| Banding in gradients: sky, walls, night light | `deband_safe` or `deband_fine_grain` | PRECISION / Deband |
+| One preset for filmic footage: noise and banding out, a controlled grain in | `filmic_rebuild` | PRECISION / Master |
+| A clean neutral master for the archive, no grain | `archive_clean` | PRECISION / Master |
+| Before grading in Resolve: the least possible touch | `pregrade_prep` | PRECISION / Master |
+| Blocks, ringing, mosquito noise of over-compressed H.264 or MPEG | `deblock_h264_artefacts` | RESTORATION / Artefacts |
+| Rainbow and dot crawl of a composite capture: VHS, U-matic, BetaSP | `derainbow_decross` | RESTORATION / Artefacts |
+| Haze, a flat low-contrast picture | `dehaze_local_contrast` | RESTORATION / Artefacts |
+| Twice the size, the same on every run, no invented texture | `nnedi3_upscale_2x` | RESTORATION / Scale |
+| Drawn animation twice the size with clean lines: 1080p to 3840×2160 | `vsmlrt_realesrgan_2x` (MLRT) | RESTORATION / Scale |
+| HD by size but soft in detail, rebuilt at twice the size | `soft_hd_rebuild_2x` (MLRT) | RESTORATION / Scale |
+| A Kodak 35 mm stock: 250D, 500T or 50D | `film_35mm` | FILM LOOKS / Film stock |
+| 16 mm: softer, grainier, lifted blacks | `film_16mm` | FILM LOOKS / Film stock |
+| Super 8: the heaviest grain, the faded 70s | `super8` | FILM LOOKS / Film stock |
+| Large-format IMAX: the finest grain, a gate weave | `imax_70mm` | FILM LOOKS / Film stock |
+| A subtle film look, safe on any footage | `cinematic` | FILM LOOKS / Look |
+| Hard contrast and little colour (Saving Private Ryan, Se7en) | `bleach_bypass` | FILM LOOKS / Look |
+| Cinemascope: horizontal blue flares, teal shadows | `anamorphic_scope` | FILM LOOKS / Look |
+| A VHS tape played on a CRT TV | `vhs_crt` | RETRO / Video |
+| A home camcorder of the 90s | `camcorder_90s` | RETRO / Video |
+| A Polaroid instant photo of the 70s and 80s | `polaroid` | RETRO / Photo |
 
-**Pipeline scenarios** (chain multiple presets via `apply-profile-batch` or manual runs):
+### Chains
+
+One run takes one preset. A chain is several runs one after another: the result of a step lands in `<Target>\<Palette>\<preset>_<encoder>\`, and that folder is the Source of the next step. Write the steps in between with `prores_lt`: a lossy file between steps passes its losses on to every next step. The final encoder goes on the last step only. A step run often is worth saving as a profile (section «PROFILES»).
 
 | Scenario | Steps |
 |---|---|
-| Night timelapse → film | `shadow_denoise_sota` → `filmic_rebuild` → `cinematic` |
-| VHS archive → restored master | `qtgmc_deinterlace` → `derainbow_decross` → `mvtools_mcdegrain` → `archive_clean` |
-| Old YouTube-rip → project-ready | `deblock_h264_artefacts` → `dehaze_local_contrast` → `pregrade_prep` |
-| Telecined NTSC DVD → 24p master | `tivtc_ivtc` → `archive_clean` |
-| Modern digital → film look | `mild_denoise` → `film_35mm` |
+| Night timelapse to a film look | `shadow_denoise_sota` → `filmic_rebuild` → `cinematic` |
+| VHS archive to a restored master | `qtgmc_deinterlace` → `derainbow_decross` → `mvtools_mcdegrain` → `archive_clean` |
+| Old web rip to a file fit for a project | `deblock_h264_artefacts` → `dehaze_local_contrast` → `pregrade_prep` |
+| Telecined NTSC DVD to a 24p master | `tivtc_ivtc` → `archive_clean` |
+| Modern digital footage to a film look | `mild_denoise` → `film_35mm` |
+| SD or HD archive to a master twice the size, with a fine grain | `vsmlrt_realesrgan_2x` (without MLRT — `nnedi3_upscale_2x`) → `deband_fine_grain` |
+| Soft HD to a 4K film look | `soft_hd_rebuild_2x` → `film_35mm` |
 
----
+Grain and film looks go after the upscale: grain laid before it is enlarged together with the picture.
 
-## PRECISION palette — technical pipeline (8 presets)
+## PRECISION
 
-Menu order = pipeline logic: Stage 1 (denoise) → Stage 2 (deband) → Stage 3 (compositions).
+Technical preparation: denoise, deband, grain. The groups follow the order of the work: Denoise, then Deband, then Master, which does both and lays grain. The grain of every preset starts from a fixed seed: one file gives the same frames on every run.
 
-### Stage 1 — denoise
+### Denoise
 
-#### `mild_denoise` — soft universal denoiser
+#### Mild Denoise (`mild_denoise`)
 
-DFTTest spectral denoiser. Pure CPU, hardware-agnostic — same behaviour on any CPU. Recommended as the **first choice** when nothing specific is known about the material: light noise, gentle clean-up without risk.
+DFTTest, a spectral denoiser, on the CPU: the same result on any machine, no video card or OpenCL needed. The first pick when little is known about the footage: light, even noise, a small cleanup at low risk.
 
-- Parameters: `strength` = light (sigma=4.0) / medium (8.0) / strong (14.0)
-- Encoder: `h264_crf17` or `h264_crf14` for archival quality
-- What's in NLE: only Temporal NR / generic Noise Reduction; coarser results
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `light`, `medium`, `strong`; default `medium` | DFTTest sigma 4, 8 or 14. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the noise measured in the source and never takes it below the setting. |
 
-#### `shadow_denoise_sota` ⭐ — flagship shadow denoiser
+Encoder: `h264_crf14` for the archive, `h264_crf17` for a final file.
 
-BM3D with float32 pipeline + smooth luma-mask "shadows only". Noise is killed **only** in zones below `shadow_threshold`; the rest of the picture is untouched. Chroma planes are always denoised (chroma noise is equally ugly everywhere). Optional `grain_back` re-adds micro-grain so cleaned shadows do not look "plastic".
+#### Shadow Denoise SOTA (`shadow_denoise_sota`)
 
-- Parameters: `sigma=2.5` (BM3D luma), `use_cuda=0/1`, `grain_back=0.6`, `shadow_threshold=0.20`, `transition=0.10`
-- On NVIDIA: `--use-cuda 1` gives 25–35% wall-time win on 4K
-- Encoder: `h264_crf17` / `prores_lt`
-- Not in NLE: zone-targeted denoise with smooth blend, no cheap "threshold mask" hack
+BM3D on 32-bit float cleans the whole frame; a smooth luma mask then keeps the cleaned luma in the shadows only, and the midtones and highlights stay as they were. The colour planes are cleaned everywhere: colour noise is ugly at any brightness. A micro-grain goes back over the cleaned shadows so that they do not look plastic. For night and low-light digital footage whose noise sits in the dark. BM3D runs on the video card or on the CPU, as the PROCESSING block says (section «BM3D on the GPU»).
 
-#### `chroma_cleanup` — chroma-only cleanup
+| Field | Values | What it changes |
+|---|---|---|
+| `sigma` BM3D sigma | `1.0` … `4.0`; default `2.5` | BM3D strength on the luma; the colour gets 0.6 of it. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the measured noise, the luma and the colour each by their own. |
+| `grain_back` Grain back | `0.0` … `2.0`; default `0.6` | Micro-grain over the cleaned shadows; `0` — none. |
+| `shadow_threshold` Shadow threshold | `0.0` … `0.5`; default `0.2` | The brightness (0 to 1) where the shadows end: higher — more of the picture is cleaned. |
+| `transition` Mask transition | `0.01` … `0.4`; default `0.1` | How wide the fade from cleaned to untouched is: full cleaning below the threshold minus the transition, none from the threshold up. |
+| `preview_mask` Show mask | on, off; default off | The result is the shadow mask itself, white where it cleans: for setting the threshold. |
 
-DFTTest on planes=[1,2]. Luma untouched. Use when "the blue channel is dirty" (typical on old compact cameras, low-bitrate AVCHD).
+Encoder: `h264_crf17` or `prores_lt`.
 
-- Parameters: `strength` = light / medium / strong
-- Encoder: `h264_crf17`
-- Not in NLE: clean chroma-only DFTTest without luma side-effects
+#### Chroma Cleanup (`chroma_cleanup`)
 
-### Stage 2 — deband
+DFTTest on the two colour planes only. The luma is not touched, so the detail stays as it was. The colour takes a heavier sigma than the luma without a visible loss, as it is stored at a lower resolution. For colour blotches and a dirty blue channel: old compact cameras, low-bitrate AVCHD.
 
-#### `deband_safe` — safe debander
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `light`, `medium`, `strong`; default `medium` | Sigma on the colour: 6, 12 or 20. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the measured colour noise, the larger of U and V. |
 
-neo_f3kdb with light settings, no grain. Removes banding in gradients (skies, walls, night lighting) without softening edges.
+Encoder: `h264_crf17`.
 
-- Parameters: `range=15`, `y=64`, `cb=64`, `cr=64`
-- Encoder: `h264_crf17` / `h265_crf21`
+### Deband
 
-#### `deband_fine_grain` — deband + fine-grain restore
+#### Deband Safe (`deband_safe`)
 
-Same neo_f3kdb + AddGrain. Light monochromatic grain after debanding — avoids the "too clean" look characteristic of cheap compression.
+neo_f3kdb with light settings on 16 bit, no grain added: the steps in skies, walls and night light go, the edges stay sharp.
 
-- Parameters: `range=15`, `grain_var=1.5`
-- Encoder: `prores_lt` (for downstream grading)
+| Field | Values | What it changes |
+|---|---|---|
+| `range` Deband range | `8` … `32`; default `12` | How far neo_f3kdb looks for the neighbours it smooths with: larger — stronger, wider bands go. |
+| `y` Y threshold | `0` … `128`; default `48` | How strong a step of brightness is still smoothed. |
+| `cb`, `cr` Cb and Cr thresholds | `0` … `128`; default `32` | The same for the two colour planes. |
 
-### Stage 3 — compositions
+Encoder: `h264_crf17` or `h265_crf17`. Both write 10 bit, so the smoothed gradients do not band again.
 
-#### `filmic_rebuild` ⭐ — flagship composition
+#### Deband Fine Grain (`deband_fine_grain`)
 
-Full chain: BM3D denoise → neo_f3kdb deband → 3-zone luma grain (shadows / midtones / highlights). Zonal grain — heavier in shadows (like real film), lighter in highlights. Recommended as "one preset for everything filmic".
+The same neo_f3kdb, then AddGrain lays a fine grain over the smoothed gradients. The picture keeps a natural texture instead of the too-clean look of cheap compression.
 
-- Parameters: `sigma=2.0`, `use_cuda=0/1`, `deband_range=14`, `grain_shadow=1.5`, `grain_mid=0.9`, `grain_high=0.4`, `shadow_threshold=0.30`, `high_threshold=0.65`
-- Encoder: `prores_lt` / `h265_crf21`
+| Field | Values | What it changes |
+|---|---|---|
+| `range` Deband range | `8` … `32`; default `14` | How far neo_f3kdb looks for the neighbours it smooths with: larger — stronger. |
+| `y` Y threshold | `0` … `128`; default `48` | How strong a step of brightness is still smoothed. |
+| `cb`, `cr` Cb and Cr thresholds | `0` … `128`; default `32` | The same for the two colour planes. |
+| `grain_var` Grain variance | `0.0` … `2.0`; default `0.6` | AddGrain variance on the luma; the colour gets 0.27 of it. |
 
-#### `archive_clean` — neutral archival master
+Encoder: `prores_lt` for grading.
 
-DFTTest + neo_f3kdb. **No grain.** Goal — maximally clean, "flat" picture for archiving. Do not use if downstream grading is planned (grading works better on grainy material).
+### Master
 
-- Parameters: `denoise=medium`, `range=15`
-- Encoder: `prores_422hq` / `prores_422hq_mxf`
+#### Filmic Rebuild (`filmic_rebuild`)
 
-#### `pregrade_prep` — handoff to DaVinci
+Three stages in one run: BM3D takes the digital noise out, neo_f3kdb the banding, then grain is laid by brightness — heaviest in the shadows, as on real film, lighter in the midtones, lightest in the highlights. The zones fade into each other over 0.1 of brightness. One preset for filmic footage. BM3D runs where the PROCESSING block says.
 
-Minimum touch: light DFTTest only. No deband, no grain. Goal — give Resolve the cleanest source so the colorist isn't grading on top of compression artefacts.
+| Field | Values | What it changes |
+|---|---|---|
+| `sigma` BM3D sigma | `1.0` … `3.5`; default `2.0` | BM3D strength on the luma; the colour gets 0.6 of it. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the measured noise. |
+| `deband_range` Deband range | `8` … `32`; default `14` | How far neo_f3kdb looks for the neighbours it smooths with. |
+| `grain_shadow` Grain in shadows | `0.0` … `3.0`; default `1.5` | Grain variance where the picture is darker than the shadow threshold. |
+| `grain_mid` Grain in mid-tones | `0.0` … `3.0`; default `0.9` | Grain variance between the two thresholds. |
+| `grain_high` Grain in highlights | `0.0` … `3.0`; default `0.4` | Grain variance where the picture is brighter than the highlight threshold. |
+| `shadow_threshold` Shadow threshold | `0.0` … `0.5`; default `0.3` | The brightness (0 to 1) where the shadows end. |
+| `high_threshold` Highlight threshold | `0.5` … `1.0`; default `0.65` | The brightness (0 to 1) where the highlights begin. |
 
-- Parameters: `strength=light`
-- Encoder: `prores_lt_mxf` (round-trip with Adobe / Avid)
+Encoder: `prores_lt` or `h265_crf17`.
 
----
+#### Archive Clean (`archive_clean`)
 
-## FILM_LOOKS palette — film emulations (7 presets)
+A light DFTTest and a light neo_f3kdb, no grain: noise and banding go, no texture is added. A neutral flat master for long storage, delivery or a clean intermediate. Grading works better on footage with grain: when grading is planned, take `pregrade_prep` or `filmic_rebuild`.
 
-Each look uses the shared `audion_lib` library (MTF softening, halation bloom, zone grain, gamma curve, black-lift, desaturation).
+| Field | Values | What it changes |
+|---|---|---|
+| `denoise` Denoise | `light`, `medium`, `strong`; default `light` | DFTTest sigma 4, 8 or 14. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the measured noise. |
+| `range` Deband range | `8` … `32`; default `10` | How far neo_f3kdb looks for the neighbours it smooths with. |
 
-### `cinematic` — universal subtle filmic
+Encoder: `prores_422hq` or `prores_422hq_mxf`. The built-in profile `archival_master` writes `prores_422hq`.
 
-Safe default. Light MTF softening + halation + micro-grain. Not tied to a specific stock. Works on any modern digital material.
+#### Pregrade Prep (`pregrade_prep`)
 
-- Parameters: `intensity=1.0` (range 0..2)
-- Encoder: `prores_lt` / `h264_crf17`
+A very light DFTTest and nothing else: no deband, no grain. The footage goes to Resolve or Premiere almost as it was, only without the edge of the shot noise, so the colourist does not grade on top of it. Deband is left out on purpose: it can fight the colour tools; deband after the grade if it is needed.
 
-### `film_35mm` — Kodak 35mm with stock variants
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `light`, `medium`; default `light` | DFTTest sigma 3 or 6. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises the sigma with the measured noise. |
 
-Emulates real Kodak stocks: 250D (daylight balanced), 500T (tungsten), 50D (fine grain). Each stock has its own gamma curve, balance, grain density.
+Encoder: `prores_422hq` (the built-in profile `resolve_handoff`) or `prores_lt_mxf` for Premiere and Avid.
 
-- Parameters: `stock=250D|500T|50D`, `intensity=1.0`
-- Encoder: `prores_lt` / `prores_lt_mxf`
+## FILM LOOKS
 
-### `film_16mm` — organic, grainier
+The looks of film stocks. Every look is built of the same parts: MTF softening, a halation of the highlights, grain, a gamma curve, lifted blacks, desaturation. `intensity` scales the whole look; it stands on every page of the palette.
 
-Lifted blacks, more pronounced grain, softer than 35mm. Suits "documentary" / arthouse aesthetics.
+| Field | Values | What it changes |
+|---|---|---|
+| `intensity` Intensity | `0.0` … `2.0`; default `1.0` | The strength of the whole look: `0` — off, `1` — as tuned, `2` — heavy. |
 
-- Parameters: `intensity=1.0`
-- Encoder: `prores_lt`
+### Film stock
 
-### `super8` — strongest look
+#### Film 35mm (`film_35mm`)
 
-Heaviest grain, softest optics, faded 70s. For music videos / stylized inserts.
+Kodak 35 mm with the stock to choose. The stocks differ in grain, contrast, halation and colour cast: 250D — daylight, neutral, fine grain; 500T — tungsten, faster, a moderate grain, a cooler tilt; 50D — daylight, the cleanest grain.
 
-- Parameters: `intensity=1.0`
-- Encoder: `h264_crf17` (grain is already baked in, aggressive compression OK)
+| Field | Values | What it changes |
+|---|---|---|
+| `stock` Stock | `250D`, `500T`, `50D`; default `250D` | The stock, as above. |
+| `intensity` Intensity | `0.0` … `2.0`; default `1.0` | The strength of the whole look. |
 
-### `imax_70mm` — large-format IMAX feel ⭐
+Encoder: `prores_lt` or `prores_lt_mxf`. The built-in profile `filmic_warm_35mm` is 250D at `intensity` 1.0 into `h264_crf14`.
 
-Opposite of Super 8: **minimal grain, maximum resolution**, very soft halation on highlights, optional 1px gate weave (deterministic, seed=42 → reproducible). The huge frame of real 70mm IMAX → each silver grain is tiny relative to the picture. Suits shots that should feel "epic", not "filmic".
+#### Film 16mm (`film_16mm`)
 
-- Parameters: `intensity=1.0`, `gate_weave=1` (on by default)
-- Encoder: `prores_lt` / `h265_crf17`
-- Not in NLE: calibrated micro-grain plus gate weave (NLEs only do flat plate grain)
+The organic 16 mm feel: softer than 35 mm, as a smaller frame resolves less; more visible grain; a stronger halation; lifted blacks. For a documentary or indie look on digital footage. One field: `intensity`.
 
-### `anamorphic_scope` ⭐ — Hollywood cinemascope
+Encoder: `prores_lt`.
 
-Anamorphic optics signature: **long horizontal blue lens flares** on highlights only (those "horizontal blue streaks across the sky" in Abrams / Nolan / Villeneuve films, made by Panavision / Hawk / ARRI Master Anamorphic). Plus subtle teal-cool shadows for the classic blockbuster look.
+#### Super 8 (`super8`)
 
-In our implementation: highlight-mask (`flare_thr`) → horizontal low-pass blur of length `flare_len` → blue tint (R 10% / G 55% / B 100%) → additive merge over the original. Then shadow-masked teal shift (R −10% / G +5% / B +12%). All in 16-bit RGB so streaks don't clip.
+The most extreme of the stocks: the heaviest grain, the softest optics, the strongest halation, lifted blacks, a lowered contrast — a home movie of the 1970s. For music videos and stylised inserts. One field: `intensity`.
 
-- Parameters: `intensity=1.0`, `flare_len=96` (48 subtle / **96 default** / 160 dramatic / 256 extreme), `flare_thr=0.78` (0.85 highlights-only / **0.78 default** / 0.70 aggressive / 0.60 heavy), `teal_shadow=0.35` (0.0 off / 0.20 subtle / **0.35 default** / 0.60 heavy)
-- Encoder: `prores_lt` (for colorist) or `h265_crf14` (final)
-- The preset does **not** crop the frame to 2.39:1 — that's a creative choice; add `ffmpeg -vf crop=W:floor(W/2.39):0:Y` in post if you need true scope.
-- Not in NLE: directional anamorphic streak without expensive paid plugins like Optical Flares; smooth threshold for flare cut-in; full 16-bit math.
+Encoder: `h264_crf17`: the grain is part of the look, and a lossy final file keeps it.
 
-### `bleach_bypass` — high-contrast desaturated
+#### IMAX 70mm (`imax_70mm`)
 
-"Se7en" / "Saving Private Ryan" look. High contrast, silver greys, blown highlights. Hard stylistic choice.
+Large format 65/70 mm, the opposite of Super 8: the resolution is kept, there is almost no grain (on a large frame each grain is tiny against the picture), a gentle halation touches the brightest highlights only, and a barely visible gate weave takes away the too-clean digital look. For shots that should feel epic rather than filmy.
 
-- Parameters: `intensity=1.0`
-- Encoder: `prores_lt`
+| Field | Values | What it changes |
+|---|---|---|
+| `intensity` Intensity | `0.0` … `2.0`; default `1.0` | The strength of the whole look. |
+| `gate_weave` Gate weave | on, off; default on | Every frame moves a little, as film does in the gate of a projector: by 0 or 2 pixels each way, as the colour of 4:2:0 needs even steps. One file gets the same weave on every run. Off, or `intensity` 0 — the picture stands still. |
 
----
+Encoder: `prores_lt` or `h265_crf17`.
 
-## RETRO palette — analog character (3 presets)
+### Look
 
-### `vhs_crt` — VHS / CRT
+#### Cinematic (`cinematic`)
 
-Chroma bleed (horizontal color smear), soft optics, analog noise. Emulation of VHS playback through a CRT TV.
+A universal subtle film look, not tied to a stock: a mild MTF softening, a light bloom of the highlights, a fine grain. No heavy grain, no gate weave, no flicker. A safe first look for any modern digital footage. One field: `intensity`, which scales the grain, the halation and the softening together.
 
-- Parameters: `intensity=1.2`
-- Encoder: `h264_crf17`
+Encoder: `prores_lt` or `h264_crf17`.
 
-### `camcorder_90s` — amateur camcorder
+#### Bleach Bypass (`bleach_bypass`)
 
-Softer than VHS, slight overexposure, minimal chroma bleed. 90s home video aesthetic.
+The look of a print whose silver was not bleached out: a black-and-white image lies over the colour one. High contrast, silver greys, hot highlights, little colour. A strong stylistic choice. One field: `intensity` — higher gives more contrast, less colour and a little more softness.
 
-- Parameters: `intensity=1.0`
-- Encoder: `h264_crf17`
+Encoder: `prores_lt`.
 
-### `polaroid` ⭐ — 1970s Polaroid SX-70
+#### Anamorphic Scope (`anamorphic_scope`)
 
-Strong candy-bloom on highlights, lifted blacks (never goes to true black, creamy fade), warm gamma push, mild desaturation, **radial edge vignette**. Five composited steps — what would take a stack of 5–6 effects to build manually in NLE.
+The cinemascope look of anamorphic lenses: long horizontal blue streaks from the bright highlights only, and cool teal shadows. The work is done in 16-bit RGB, so the streaks do not clip: a highlight mask, a horizontal blur of the flare length, a blue tint, added over the picture — a streak only adds light. Then a teal shift in the shadows (brightness below 0.4) and a light grain. The frame is not cropped to 2.39:1: a true scope frame is cropped in the edit.
 
-- Parameters: `intensity=1.0`, `vignette=0.55` (range 0..1; 0 = none, 1 = corners to black)
-- Encoder: `h264_crf17` (filmic material tolerates compression)
-- Not in NLE: one-shot Polaroid emulation; radial vignette without geometric distortion or LUT side-effects
+| Field | Values | What it changes |
+|---|---|---|
+| `intensity` Intensity | `0.0` … `2.0`; default `1.0` | The strength of the whole look, the streaks and the teal included. |
+| `flare_len` Flare length | `32` … `256`; default `96` | The length of a streak in pixels: about 48 — subtle, 160 — dramatic, 256 — extreme. |
+| `flare_thr` Flare threshold | `0.0` … `1.0`; default `0.78` | From what brightness a highlight flares: 0.85 — only the brightest, 0.70 — much of the picture. |
+| `teal_shadow` Teal shadows | `0.0` … `1.0`; default `0.35` | The strength of the teal tint in the shadows: `0` — none, 0.6 — heavy. |
 
----
+Encoder: `prores_lt` for the colourist, `h265_crf14` for the final file.
 
-## RESTORATION palette — supercannons (10 presets, Phase 18.B + 18.B-ML)
+## RETRO
 
-What's **missing or weak** in Adobe Premiere / DaVinci Resolve.
+The analog character of video and photo. Every preset has `intensity`, as in FILM LOOKS: `0.0` … `2.0`, default `1.0`.
 
-### `qtgmc_deinterlace` — reference-grade deinterlace
+### Video
 
-havsfunc.QTGMC (NNEDI3 + MVTools motion estimation). Reconstructs progressive frames from interlaced source via neural-network upscaling of each field + motion-compensated temporal smoothing. **Better than any NLE out-of-the-box.**
+#### VHS CRT (`vhs_crt`)
 
-- Parameters: `field_order=tff|bff`, `qtgmc-preset=Faster|Fast|Medium|Slow|Slower|Placebo`, `output_fps=single|double`
-- When to use: DV, HDV, VHS captures, broadcast TS, S-VHS / U-matic digitization
-- Encoder: `prores_lt` (for downstream work) or `h264_crf17` (if final master)
+Composite video, a VHS tape, a CRT TV: a heavy sideways bleed of the colour (the signature of the look), soft optics, a slight misalignment of the colour, mild noise. One field: `intensity`. The built-in profile `vhs_dreamy` runs it at 1.2.
 
-### `tivtc_ivtc` — inverse telecine
+Encoder: `h264_crf17`.
 
-TIVTC.TFM (field matching) + TIVTC.TDecimate (drop duplicate). Reference-quality 3:2 pulldown removal: NTSC 29.97i → 23.976p. Recovers the original 24p film master from a telecined source.
+#### Camcorder 90s (`camcorder_90s`)
 
-- Parameters: `pp=6` (TFM post-processor), `cycle=5`, `rdrop=1` (standard NTSC pattern)
-- When to use: NTSC DVDs, broadcast prints, digitized film transfers
-- Encoder: `prores_422` / `prores_422hq_mxf`
+A consumer camcorder of the 90s: softer than VHS, slightly overexposed, a mild colour bleed and tape noise — less a broken signal, more a home video. One field: `intensity`.
 
-### `mvtools_mcdegrain` — motion-compensated denoise
+Encoder: `h264_crf17`.
 
-MVTools motion estimation → MDeGrain temporal averaging along motion vectors. **Removes noise WITHOUT losing detail** — what Topaz Video Enhance AI and Neat Video do internally. DaVinci Temporal NR is a coarse implementation of the same; here you get reference-grade.
+### Photo
 
-- Parameters: `radius=2` (5-frame window), `thsad=200`, `blksize=16` (HD) / `8` (4K detail)
-- When to use: high-ISO night footage, preserving skin / fabric texture
-- Encoder: `prores_lt` / `h265_crf17`
+#### Polaroid (`polaroid`)
 
-### `derainbow_decross` — NTSC composite cleanup
+A Polaroid SX-70 instant photo of the 70s and 80s: soft optics, a candy bloom of the highlights (even bright skin glows a little), blacks that never reach black, warm cream midtones, a little less colour, dark corners. Softer and less grainy than Super 8.
 
-MVTools-based motion-compensated chroma-only smoothing. Removes rainbow / dot crawl / cross-color on composite-capture material (VHS-rip, U-matic, BetaSP, S-Video → SDI). Luma untouched.
+| Field | Values | What it changes |
+|---|---|---|
+| `intensity` Intensity | `0.0` … `2.0`; default `1.0` | The strength of the whole look, the vignette included. |
+| `vignette` Vignette | `0.0` … `1.0`; default `0.55` | How dark the corners go: `0` — no vignette, `1` — the corners go black. |
 
-- Parameters: `strength=0.6`, `blksize=16`
-- When to use: digitized VHS, color "crawls" on thin lines, mosquito noise on B/W edges
-- Encoder: `prores_lt` / `h264_crf17`
+Encoder: `h264_crf17`.
 
-### `deblock_h264_artefacts` — over-compression rescue
+## RESTORATION
 
-havsfunc.Deblock_QED — edge-aware deblocker for H.264 / MPEG-2 / MPEG-4. Smooths 8x8 block boundaries, ringing around edges, mosquito noise. Edge-aware — does not smear real detail.
+What editors do coarsely or not at all: deinterlacing, inverse telecine, denoise along the motion, compression artefacts, scaling, new frames. Four presets of the palette run on neural networks (MLRT).
 
-- Parameters: `quant1=24`, `quant2=26`, `aoffset=1`, `boffset=1`
-- When to use: old YouTube rips, WhatsApp/Telegram re-encodes, low-bitrate SD broadcast TS
-- Encoder: `h264_crf17` (after deblock the material is cleaner; you can re-encode at higher CRF)
+### Interlace
 
-### `dehaze_local_contrast` — clarity without halos
+#### QTGMC Deinterlace (`qtgmc_deinterlace`)
 
-Luma-only local contrast via high-pass + zone-weighted MaskedMerge. Zone-mask (parabolic, peak at midtones) prevents blown highlights and crushed shadows. Color does not shift (luma-only). 16-bit math.
+QTGMC of havsfunc: every field is enlarged by NNEDI3 and smoothed in time along the motion MVTools finds. The result is progressive frames without combing, flicker or ghosting on fast pans. For DV, HDV, captured VHS, S-VHS and U-matic, broadcast TS. The preset does not denoise: denoise as the next step.
 
-- Parameters: `strength=1.0`, `radius=8` (clarity) / `12-16` (haze removal)
-- When to use: haze, flat low-contrast material, need to "wake the picture up" without destroying highlights
-- Not in NLE: Resolve "Dehaze" blows highlights and shifts color; here, no halos
-- Encoder: `prores_lt` (handoff to colorist) or `h264_crf17` (final)
+| Field | Values | What it changes |
+|---|---|---|
+| `field_order` Field order | `tff`, `bff`; default `tff` | TFF — top field first (broadcast, HDV, DV NTSC); BFF — bottom field first (DV PAL). The wrong order makes motion jump back and forth. |
+| `preset` QTGMC preset | 11 steps from `Draft` to `Placebo`; default `Medium` | Speed against quality: Draft is the fastest, Placebo the slowest. |
+| `output_fps` Output frame rate | `single`, `double`; default `single` | Single — the frame rate of the source. Double — every field becomes a frame: twice the frames (25i into 50p), the smoothest motion, twice the encoding. |
 
----
+Encoder: `prores_lt` for further work, `h264_crf17` for a final master.
 
-## Encoders — my patterns
+#### TIVTC IVTC (`tivtc_ivtc`)
 
-(Audion default workflow per the 2026-04-28 discussion)
+Inverse telecine: TFM matches the film fields back into frames, TDecimate drops the repeated frame of every cycle. NTSC 29.97 fps with 3:2 pulldown goes back to the progressive 23.976 fps film master. For NTSC DVDs, broadcast prints, digitised film. The frame count drops by `rdrop` frames of every `cycle`: by a fifth at the defaults; the length of the clip stays. A source below 29 fps is refused: it runs at film rate already, and decimation would drop every fifth real frame.
 
-**Quality ladder** (same 14 / 17 / 21 tiers across software, NVENC, QuickSync, and AMF): **14 → 17 → 21**, three distinguishable steps without overlap.
+| Field | Values | What it changes |
+|---|---|---|
+| `pp` TFM post-processing | `0` … `7`; default `6` | `0` — off … `7` — deinterlace whatever does not match; `6` deinterlaces the frames TFM could not match cleanly. |
+| `cycle` Cycle | `2` … `25`; default `5` | The TDecimate cycle in frames; 5 for a standard NTSC telecine. |
+| `rdrop` Drop per cycle | `1` … `5`; default `1` | Frames dropped from each cycle; 1 of 5 for NTSC. |
 
-| Profile | When to use |
+Encoder: `prores_422` or `prores_422hq_mxf`.
+
+### Noise
+
+#### MVTools MCDegrain (`mvtools_mcdegrain`)
+
+MVTools follows every block across the frames before and after, and MDegrain averages each pixel with its neighbours along the motion. The noise goes; still texture stays sharp, and so does moving texture, as it is averaged along its motion, not across it. For high-ISO and low-light footage where skin and fabric must keep their texture.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `radius` Radius | `1` … `3`; default `2` | How many frames before and after are taken: 2 — a window of 5 frames; higher — stronger and slower. |
+| `thsad` THSAD | `100` … `400`; default `200` | The threshold of a block's difference: lower — only confident matches are averaged, higher — more averaging. |
+| `noise` Noise | `auto`, `fixed`; default `auto` | Auto raises `thsad` and the scene-change threshold with the measured luma noise. |
+| `blksize` Block size | `8`, `16`; default `16` | The block of the motion search: 16 for SD and HD, faster; 8 for fine detail and 4K, slower. |
+
+Encoder: `prores_lt` or `h265_crf17`.
+
+#### DPIR Denoise (`dpir_denoise`)
+
+A neural preset: it needs MLRT. DPIR, a deep denoise network, keeps the texture of skin and fabric on very dirty footage where BM3D and DFTTest smear it: ISO 6400 and higher, a phone in the dark. The network is told how heavy the noise is (`strength`). The frame size and the frame count stay.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `1.0` … `50.0`; default `10.0` | The noise level the network expects: 5 — light shot noise, 10 — medium (ISO 1600–3200), 15 — heavy (ISO 6400 and higher), 25 — very heavy (ISO 12800, a phone in the dark), 50 — extreme. |
+| `model` Model | `drunet_color` Colour (default), `drunet_gray` Grey, `drunet_deblocking_color` Blocks, colour, `drunet_deblocking_gray` Blocks, grey | Colour — colour video; Blocks — the blocks of JPEG and MPEG as well; Grey — the brightness alone, the colour kept as it is (black-and-white footage). |
+| `tile` Tile | `256` … `512`, step 16; default `384` | The piece of the frame the network takes at a time, in pixels: smaller — less video memory, slower. |
+
+Encoder: `prores_lt` for the colourist, `h264_crf14` for the final file.
+
+### Artefacts
+
+#### Deblock H.264 Artefacts (`deblock_h264_artefacts`)
+
+Deblock_QED of havsfunc, for the artefacts of block compression: the edges of 8×8 blocks, ringing around edges, mosquito noise. It finds the real edges first and smooths the borders of the blocks only, so the true detail stays. For old web rips, messenger re-encodes (WhatsApp, Telegram), low-bitrate SD broadcast.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `quant1` Quant 1 | `16` … `32`; default `24` | The strength on the edges of the blocks: higher — stronger. |
+| `quant2` Quant 2 | `16` … `32`; default `26` | The strength inside the blocks. |
+| `aoffset` Alpha offset | `0` … `2`; default `1` | How sensitive the filter is to edges. |
+| `boffset` Beta offset | `0` … `2`; default `1` | How sensitive the filter is inside the blocks. |
+
+Encoder: `h264_crf17`.
+
+#### Derainbow Decross (`derainbow_decross`)
+
+The rainbow, dot crawl and cross colour of NTSC composite are a fine colour flicker that moves from frame to frame. The motion is found on the luma, and the colour planes are averaged along it over 3 frames — the frame, the one before and the one after. The moving artefacts cancel out, the real colour stays. The luma is not touched, so the sharpness stays. For digitised VHS, U-matic, BetaSP, broadcast masters, S-Video into SDI.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `0.0` … `1.0`; default `0.6` | How strongly the colour is smoothed: `0` — as it was, `1` — fully. |
+| `blksize` Block size | `8`, `16`; default `16` | The block of the motion search: 16 for SD and HD, 8 for fine detail and 4K. |
+
+Encoder: `prores_lt` or `h264_crf17`.
+
+#### Dehaze Local Contrast (`dehaze_local_contrast`)
+
+Local contrast on the luma alone: the picture minus its blur is added back, weighted by a brightness mask that peaks in the midtones and fades out at black and white. The highlights do not burn, the shadows do not go muddy. The colour is not touched, so it does not shift; the math is 16-bit, without halos. For haze and a flat low-contrast picture.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `strength` Strength | `0.0` … `2.0`; default `1.0` | How much local contrast is added back: `0` — the picture as it was, `2` — aggressive. |
+| `radius` Radius | `1` … `16`; default `8` | The size of the blur in pixels: about 8 — clarity of fine structure, 12–16 — haze over large structures. |
+
+Encoder: `prores_lt` for the colourist, `h264_crf17` for the final file.
+
+### Scale
+
+#### NNEDI3 Upscale 2X (`nnedi3_upscale_2x`)
+
+NNEDI3 (znedi3, through `nnedi3_resample`) doubles the width and the height: clean edges, the same result on every run, no network to invent texture, no MLRT needed. For SD and HD archive that must be enlarged predictably. 1920×1080 becomes 3840×2160.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `quality` Quality | `fast`, `balanced`, `best`; default `balanced` | Fast — a lighter NNEDI3; balanced — as tuned; best — slower, cleaner edges. |
+| `chroma` Colour upscale | `spline36`, `nnedi3`; default `spline36` | Spline36 is the safer one; NNEDI3 is sharper and slower. |
+
+Encoder: `prores_lt` for handoff, `h264_crf14` or `h265_crf14` for the final file.
+
+#### Real-ESRGAN 2x (`vsmlrt_realesrgan_2x`)
+
+A neural preset: it needs MLRT. Real-ESRGAN doubles the width and the height (1080p into 3840×2160) with cleaner, sharper lines than Lanczos or Spline36. Its models in vs-mlrt are made for drawn animation: on live action they can over-sharpen and smooth the texture away — for live action `nnedi3_upscale_2x` (no MLRT needed) is the safer upscale.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `model` Model | `animevideov3` Anime (default), `animejanaiV2-L1` … `animejanaiV2-L3` AnimeJaNai 1–3 | Anime is the lightest, AnimeJaNai 1–3 go from lighter to stronger; every one is made for drawn animation. |
+| `tile` Tile | `256` … `768`, step 16; default `384` | The piece of the frame the network takes at a time, in pixels: smaller — less video memory, slower. |
+| `tile_pad` Tile overlap | `4` … `64`; default `16` | How far the pieces overlap, in pixels, so that their seams do not show. |
+
+vs-mlrt carries no general model of Real-ESRGAN (`general-x4v3`, `general-wdn-x4v3`): the preset does not offer them, and a model the installed vs-mlrt lacks is refused by name, never run as another.
+
+Encoder: `prores_lt` for further work, `h265_crf14` for the final file.
+
+#### Soft HD Rebuild 2x (`soft_hd_rebuild_2x`)
+
+A neural preset: it needs MLRT. For footage that is HD by size but holds far less detail: soft optics, pixel binning, a strong anti-aliasing filter, old codecs, generations of archive copies. A light DFTTest cleanup comes first, so that the network does not enlarge the noise and the blocks; then Real-ESRGAN at twice the width and height; then a careful sharpening of the luma.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `rebuild` Rebuild | `conservative` Careful, `balanced` Balanced (default), `aggressive` Strong | How much detail comes back after the network: Careful — no halos, Strong — for very soft sources. |
+| `cleanup` Cleanup | `light`, `medium`, `strong`; default `medium` | The DFTTest cleanup before the network: sigma 2, 4 or 7. |
+| `model`, `tile`, `tile_pad` | as in Real-ESRGAN 2x | The model, the tile and its overlap. |
+
+Encoder: `prores_lt` for grading, `h265_crf14` for the final file.
+
+## PROFILES
+
+A profile is a preset with its settings and its encoder, saved under a name in `config\profiles`. It runs on a file or on a whole folder and keeps a step of a chain ready.
+
+### Run a profile (`profile_run`)
+
+| Field | Values | What it changes |
+|---|---|---|
+| `profile` Profile | the profiles of `config\profiles` | The profile to run; choosing one sets its encoder on the cards. |
+
+The PROCESSING block stands on the page and moves whatever the preset of the profile has. The result goes into `<Target>\Profiles\<profile>_<encoder>\`.
+
+### Save a profile (`profile_save`)
+
+The button «Save a profile» on the page of a preset saves the settings of that page and the encoder of the cards.
+
+| Field | Values | What it changes |
+|---|---|---|
+| `profile_name` Name | Latin letters, digits, `-` and `_`; required | The name of the profile. |
+| `profile_description` Description | a line | What the profile is for. |
+
+The built-in profiles:
+
+| Profile | Preset | Settings | Encoder |
+|---|---|---|---|
+| `shadow_clean_quick` | `shadow_denoise_sota` | `sigma` 2.5, `grain_back` 0.6, `shadow_threshold` 0.20, `transition` 0.10 | `h264_crf14` |
+| `filmic_warm_35mm` | `film_35mm` | `stock` 250D, `intensity` 1.0 | `h264_crf14` |
+| `archival_master` | `archive_clean` | `denoise` light, `range` 10 | `prores_422hq` |
+| `resolve_handoff` | `pregrade_prep` | `strength` light | `prores_422hq` |
+| `vhs_dreamy` | `vhs_crt` | `intensity` 1.2 | `h264_crf14` |
+
+## Denoise strength by measured noise
+
+Seven denoise presets — `mild_denoise`, `chroma_cleanup`, `archive_clean`, `pregrade_prep`, `shadow_denoise_sota`, `filmic_rebuild`, `mvtools_mcdegrain` — measure the noise of the source before they start (`noise=auto`, the default):
+
+- 5 frames spread over the clip, flat areas only: texture, edges and areas within 3 % of black or white are left out;
+- the result is a standard deviation in 8-bit codes, the luma and the colour each their own.
+
+Their settings (`strength`, `sigma`, `thsad`) are made for noise of about 2 codes. Measured noise above that raises them: BM3D's sigma and MVTools' thresholds grow with the noise, DFTTest's sigma with its square. A setting is never lowered, so clean footage gets exactly what the setting says. MVTools' scene-change threshold rises with the noise too: on heavy noise every block would exceed the default one, the whole frame would count as a new scene and be left unfiltered.
+
+`noise=fixed` (`--set noise=fixed`) takes the settings as they are. What was measured and what the preset made of it go into the report of the run (the field `noise` of each file), for example:
+
+```text
+[NOISE] mild_denoise: noise 5.34 / 3.44 / 2.75 (8-bit, Y/U/V) -> DFTTest sigma 57.1
+```
+
+## BM3D on the GPU
+
+`shadow_denoise_sota` and `filmic_rebuild` are mostly BM3D. `bm3dvk` runs BM3D on a Vulkan device of the VapourSynth core — NVIDIA, AMD or Intel, with the ordinary graphics driver; no CUDA Toolkit is needed. Without a Vulkan device BM3D runs on the CPU (`bm3d`).
+
+The PROCESSING block (`vs_accel`) of these two presets:
+
+| Value | Where BM3D runs |
 |---|---|
-| `h264_crf14` / `h265_crf14` ⭐ default | Semi-lossless archive, master for downstream work. **Audion default since 2026-04-28.** |
-| `h264_crf17` / `h265_crf17` | "Almost invisible" lossy, final master |
-| `h264_crf21` / `h265_crf21` | Web preview / proxy / preview |
-| `prores_lt` ⭐ | Audion default ProRes — no keying, made for grading and round-trip |
-| `prores_lt_mxf` ⭐ | ProRes LT in MXF wrapper — for Adobe Premiere / Avid round-trip |
-| `prores_422` | If you need slightly more bitrate than LT |
-| `prores_422_mxf` | ProRes 422 in MXF wrapper for Adobe / Avid handoff |
-| `prores_422hq` | Only if keying is planned |
-| `prores_422hq_mxf` | HQ + MXF for broadcast / Avid finishing |
-| `dnxhr_lb` / `_sq` / `_hq` / `_hqx` | Avid-style DNxHR (LB low / SQ standard / HQ high / HQX 10-bit) |
-| **`h264_nvenc_q14` / `_q17` / `_q21`** | NVENC hardware H.264 on NVIDIA. Removes the libx264 CPU bottleneck — VS filters don't compete with encode. **CQ ≈ CRF**. 8-bit yuv420p. |
-| **`h265_nvenc_q14` / `_q17` / `_q21`** | NVENC hardware HEVC, 10-bit p010le. Ideal for full pipeline on NVIDIA: VS filtering on CPU/CUDA + encode on NVENC = no CPU bottleneck. |
-| **`h264_qsv_q14` / `_q17` / `_q21`** | Intel QuickSync H.264. Good for Intel iGPU batch/proxy work when CPU should stay free for VapourSynth. |
-| **`h265_qsv_q14` / `_q17` / `_q21`** | Intel QuickSync HEVC, p010le for 10-bit output where supported. |
-| **`h264_amf_q14` / `_q17` / `_q21`** | AMD AMF H.264 via CQP, matching the same visual ladder. |
-| **`h265_amf_q14` / `_q17` / `_q21`** | AMD AMF HEVC, p010le output; useful on Radeon hosts. |
+| `auto` (default) | On the video card when VapourSynth sees a working Vulkan device, else on the CPU. |
+| `cpu` | On the CPU: `bm3d` (or `bm3dcpu`, where it loads). |
+| `gpu` | On the video card through Vulkan (`bm3dvk`), any maker; the CPU when there is no Vulkan device. |
 
-**Rule**: for any non-final pass → `prores_lt` / `prores_lt_mxf` or DNxHR if the receiving app prefers it. For final delivery → `h264_crf14` / `h264_crf17` (software, best density per bit) OR the matching hardware ladder for the host (`nvenc`, `qsv`, `amf`) when wall-time matters.
+- On the video card two runs of one file agree within about 65 dB PSNR: the card sums in a varying order. `bm3d` on the CPU gives the same frames byte for byte on every run.
+- The other filters run on the CPU, and the video card does not help them; so PROCESSING is shown only where it moves something: the two BM3D presets, the neural presets and profiles.
+- SERVICE → «BM3D: video card or CPU» (`bench_gpu`) measures frames a second of each on the first video of the Source; «Doctor» makes a live call and names the device. For a bare `vspipe` run of a `.vpy`, `AUDION_VS_BM3D=vulkan` or `AUDION_VS_BM3D=bm3d` names one of them.
 
-### When to use hardware encode vs software
+## The neural presets and MLRT
+
+Three presets run on vs-mlrt, neural networks inside VapourSynth: `dpir_denoise`, `vsmlrt_realesrgan_2x`, `soft_hd_rebuild_2x`. RIFE Interpolation is out: on an RTX 5070 TensorRT builds wrong frames between the frames, DirectML is open only through ONNX Runtime of the old plugin interface, which VapourSynth R80+ does not load, and on the processor a new 4K frame takes 1.28 s — about half an hour for a minute of 24p doubled to 48p ([Decisions](../DECISIONS_EN.md#no-frame-interpolation)).
+
+- **Installation.** The program looks for an NVIDIA RTX card with `nvidia-smi`. With one, it offers MLRT among the additional components at the start and in SETUP (`install_mlrt`): TensorRT, ONNX Runtime and the models, about 3.5 GB to download, trimmed to this card. MLRT goes into the folder of the engine; nothing is written into Windows. Until it is installed, the page of a neural preset says MLRT IS NOT INSTALLED.
+- **Without an RTX card and without MLRT** the window does not show these presets, and the console refuses them before the start with `[PREFLIGHT] FAIL MLRT` (exit code 2). MLRT installed on a machine with RTX keeps working when the folder moves to another machine: there the networks run on DirectML or on the CPU.
+- **Where the network runs** — the PROCESSING block (`vs_accel`):
+
+| Value | Where the network runs |
+|---|---|
+| `auto` (default) | TensorRT on an NVIDIA RTX card, else DirectML on the video card, else the CPU. Without an RTX card TensorRT is not tried at all. |
+| `cpu` | ONNX Runtime on the CPU: it works everywhere and is many times slower. |
+| `gpu` | TensorRT on NVIDIA RTX, DirectML on another card. |
+
+- **The first run of a model** builds its TensorRT engine: 30–120 s. The engine is kept on disk, and later runs start at once. A new tile size or a new frame size builds a new engine.
+- **The tile** is the piece of the frame the network takes at a time. A smaller tile needs less video memory and runs slower: when the card runs out of memory, lower `tile`. `tile_pad` overlaps the pieces so that their seams do not show.
+- **Size and frames.** `vsmlrt_realesrgan_2x` and `soft_hd_rebuild_2x` double the width and the height. `dpir_denoise` keeps both.
+
+```cmd
+vs_cli.cmd run --operation vsmlrt_realesrgan_2x --set model=animejanaiV2-L2 --set vs_accel=gpu --encoder prores_lt
+```
+
+## Choosing an encoder
+
+The quality ladder is the same for the software encoders, NVENC, QuickSync and AMF: **14 → 17 → 21**, three steps that are clearly apart. The window's default is x.264 on the CPU at 14 in MP4, that is `h264_crf14`.
+
+| Encoder | When |
+|---|---|
+| `h264_crf14` / `h265_crf14` | Near lossless: the archive, a master for further work. |
+| `h264_crf17` / `h265_crf17` | Losses almost invisible: a final master. |
+| `h264_crf21` / `h265_crf21` | Web, proxy, preview. |
+| `prores_lt` | ProRes LT, 10-bit 4:2:2 in MOV: grading and round trips, no keying. The ProRes default of the window. |
+| `prores_lt_mxf` | ProRes LT in MXF: round trips with Premiere and Avid. |
+| `prores_422` / `prores_422_mxf` | A little more bitrate than LT; MXF for Premiere and Avid. |
+| `prores_422hq` / `prores_422hq_mxf` | Keying and repeated passes; HQ in MXF for broadcast and Avid finishing. |
+| `dnxhr_lb` / `_sq` / `_hq` / `_hqx` | DNxHR: LB — low bandwidth, SQ — standard, HQ — high quality, all 8-bit 4:2:2; HQX — 10 bit. |
+| `h264_nvenc_q14` / `_q17` / `_q21` | NVIDIA hardware H.264, 8-bit 4:2:0. CQ stands in for CRF. It takes the encoding off the CPU, so the filters of VapourSynth do not wait for it. |
+| `h265_nvenc_q14` / `_q17` / `_q21` | NVIDIA hardware HEVC, 10 bit. Filters on the CPU or the video card and the encoding on NVENC: the CPU does not stall. |
+| `h264_qsv_q14` / `_q17` / `_q21` | Intel QuickSync H.264: batch and proxy work on Intel graphics. |
+| `h265_qsv_q14` / `_q17` / `_q21` | Intel QuickSync HEVC, 10 bit where the graphics supports it. |
+| `h264_amf_q14` / `_q17` / `_q21` | AMD AMF H.264 through CQP. |
+| `h265_amf_q14` / `_q17` / `_q21` | AMD AMF HEVC, 10 bit. |
+
+x.264 and x.265 on the CPU write 10-bit 4:2:0, in MP4 or MKV. A hardware encoder this machine has not passed (SERVICE → «Hardware capabilities») is off in the window.
+
+**Rule.** For any step that is not the last — `prores_lt` or `prores_lt_mxf`, or DNxHR where the receiving program prefers it. For the final file — `h264_crf14` or `h264_crf17` (software, the best quality per bit), or the hardware ladder of the machine (`nvenc`, `qsv`, `amf`) when time matters.
+
+### Hardware or software
 
 | Scenario | Encoder |
 |---|---|
-| Heavy VS pipeline (filmic_rebuild, mvtools_mcdegrain) on NVIDIA | **NVENC** — CPU is freed for the VS filter, total wall-time drops 30-50% |
-| Final delivery where maximum bit density matters | **libx264/libx265 CRF** — software encoder is still slightly more efficient at low CRF |
-| Intel iGPU host / laptop batch | **QuickSync** — good throughput with low CPU pressure |
-| AMD/Radeon host | **AMF** — same 14/17/21 CQP ladder, avoids CPU encode bottlenecks |
-| Big batch over hundreds of files | **NVENC / QSV / AMF** — time savings compound |
-| No working hardware encoder | Software only (`h264_crf*` / `h265_crf*`) |
+| A heavy pipeline (`filmic_rebuild`, `mvtools_mcdegrain`) on NVIDIA | **NVENC**: the CPU is freed for the filters, the whole run is 30–50 % shorter. |
+| A final file where the quality per bit matters most | **libx264 / libx265 CRF**: the software encoder is still slightly more efficient at low CRF. |
+| Intel graphics, a laptop batch | **QuickSync**: good throughput at a low CPU load. |
+| AMD Radeon | **AMF**: the same 14 / 17 / 21 ladder, no encoding on the CPU. |
+| A batch of hundreds of files | **NVENC, QuickSync or AMF**: the saved time adds up. |
+| No working hardware encoder | Software only: `h264_crf*`, `h265_crf*`. |
 
-NVENC requires: NVIDIA driver R525+. Quality: NVENC on Ada/Blackwell (RTX 40/50) is **comparable** to libx264 medium at the same CQ; on older generations (Pascal/Turing) software CRF wins slightly on bitrate efficiency for the same quality, but NVENC is still many times faster.
+NVENC on RTX 40 and RTX 50 cards gives quality comparable to libx264 medium at the same CQ. On older cards (GTX 10, RTX 20) the software CRF is slightly more efficient at the same quality, and NVENC is still many times faster.
 
----
+## Audio
 
-## Install & service scripts — when to run what
+Only the video goes through the preset; the audio is handled by itself:
 
-There are many scripts in `install/`, and not all are obvious. This section is the "when do you call which" map with concrete arguments and examples. Every script comes as a `.cmd` (thin wrapper, resolves portable PowerShell) + `.ps1` (full logic) pair. Usually you launch them via `builder_main.cmd` (FZF menu), but any can be run directly via double-click or CLI.
+- the audio of the source is copied as it is;
+- audio that MP4 does not take as it is — PCM, for example, of a ProRes source going into x.264 or x.265 — is encoded to AAC at 384 kbit/s;
+- into MXF the sound goes as PCM 24 bit at 48 kHz: its muxer writes no other.
 
-### Entry point: `builder_main.cmd`
-
-Main menu of service operations. FZF navigation (if `system_core\fzf.exe` exists), otherwise CMD fallback with letter hotkeys. Menu map:
-
-| # | Item | What it does | Underlying script |
-|---|---|---|---|
-| `[01]` | Build portable env CMD builder | initial build of `runtime/` | `Build_Portable_Env_Build.cmd` |
-| `[02]` | Build portable env PS | alt PowerShell-based builder | `Build_Portable_Env.ps1` |
-| `[03]` | Install portable offline | offline install from a pre-downloaded wheelhouse | `install_portable_offline.cmd` |
-| `[04]` | Verify portable env | orchestrator-Python sanity | `verify_portable_env.cmd` |
-| `[05]` | Update FZF | bump `fzf.exe` to latest | `launcher-tools-update_fzf.cmd` |
-| `[06..08]` | Licenses | collect / prune / dedupe license files | `system_core\license\Run-*.cmd` |
-| `[09]` | Make release archive | release zip excluding `output/`, `logs/`, `._runtime/`, `install/download/`, private `MEMORY.md` | `make_release_archive.cmd` |
-| `[04]` | PowerShell | portable pwsh 7 → `system_core\powershell\` | `Install-Portable-PowerShell.cmd` |
-| `[10]` | VapourSynth | latest VS stable + latest Python 3.12.x embed → `system_core\vapoursynth\` | `Install-Portable-VapourSynth.cmd` |
-| `[11]` | VS plugins | vsrepo plugin set (incl. `bm3dcuda` and `znedi3` by default) | `Install-VS-Plugins.cmd` |
-| `[12]` | FFmpeg | Exact-stable Gyan by driver policy; BtbN rolling opt-in → `Tools\ffmpeg\bin\` | `Install-Portable-FFmpeg.cmd` |
-| `[13]` ⭐ | VS-MLRT LEAN | fresh-download vs-mlrt TensorRT bundle, clean `plugins\vsmlrt`, lean-trim to current SM | `Install-VS-mlrt.cmd /LEAN` |
-| `[14]` | VS-MLRT FULL | fresh-download same install, no trim — for USB distribution | `Install-VS-mlrt.cmd /FULL` |
-| `[70]` | Clean install cache | remove transient install downloads, staging dirs, and bytecode caches while preserving portable payloads | `Clean-Install-Cache.cmd` |
-| `[90..99]` | Open / Project | explorer for subfolders / jump to project launcher | — |
-| `[00]` | Exit | — | — |
-
-From-scratch order: `[01]` -> `[03]` -> `[04]` -> `[10]` -> `[11]` -> `[12]` -> (optional) `[13]` -> `[70]`. After all install steps, run `runtime\python.exe system_core\doctor.py` once — it should be all green.
-
-### `install\Install-Portable-VapourSynth.{cmd,ps1}` — latest VS stable + own Python 3.12.x
-
-Resolves the latest stable VapourSynth release and latest Python 3.12.x embed, cleans `system_core\vapoursynth\`, installs the matching VapourSynth wheel, and drops the `portable.vs` marker so vsrepo enters portable mode. After the wheel install it explicitly creates and prints the active plugin dir from `vapoursynth.get_plugin_dir()`; VS R74+ no longer treats legacy `vs-plugins\` as the real autoload target. Uses `Expand-7zArchive` (via `Ensure-7zip.ps1`) — ~3× faster than `Expand-Archive` on large archives.
-
-At the end calls `Repair-PipShims.cmd` — fixes shebangs in `Scripts\*.exe` immediately after wheel install (a fresh install needs no manual fix).
-
-Flags: `/R <rev>` (e.g. `/R R76` to pin version). `/F` is accepted for compatibility; current installer already refreshes by default.
-
-### `install\Install-VS-Plugins.{cmd,ps1}` — VapourSynth plugins via vsrepo
-
-Installs:
-- v1.0 set: `lsmas`, `ffms2`, `fmtconv`, `neo_f3kdb`, `addgrain`, `knlmeanscl`, `bm3dcpu`, `dfttest`
-- Restoration set (Phase 18.B): `havsfunc`, `mvsfunc`, `mvtools`, `tivtc`
-- CUDA: `bm3dcuda` **by default** (Phase 18.A0). Opt-out via `/NO-CUDA` (on a clean non-NVIDIA host, to skip a plugin that would fail at load anyway).
-
-Also installs `vsutil` via pip (imported at the top level of `havsfunc.py` — without it, Restoration presets crash with `ModuleNotFoundError`).
-
-Update-safe: `vsrepo update` refreshes the package database, the installer cleans the active `vapoursynth.get_plugin_dir()` path while preserving `plugins\vsmlrt` if present, then `vsrepo install` installs the requested list again. Safe to re-run after updating the plugin list.
-
-### `install\Install-Portable-FFmpeg.{cmd,ps1}` — BtbN GPL latest, Gyan.dev fallback
-
-Installs a driver-compatible exact-stable Gyan build by default. A BtbN rolling release-branch build remains available only by explicit opt-in. Drops `ffmpeg.exe` / `ffprobe.exe` / `ffplay.exe` into `Tools\ffmpeg\bin\`. Fast extraction via `Expand-7zArchive`.
-
-Flags: `/V <variant>` (`gpl` default / `lgpl` / `gpl-shared`), `/F` (force).
-
-### `install\Install-VS-mlrt.{cmd,ps1}` — ML stack (Phase 18.B-ML)
-
-**Only for those who want the ML presets** (`vsmlrt_realesrgan_2x`, `vsmlrt_rife_60fps`, `dpir_denoise`). Installs the full TensorRT bundle: VSTRT + VSORT + VSOV + VSNCNN + ONNX runtime + TensorRT runtime DLLs + the complete ONNX model collection. After extraction, Audion moves OpenVINO/vsov out of the active autoload folder to `system_core\vapoursynth\disabled_plugins\vsmlrt-openvino`: TensorRT / TensorRT-RTX / ONNX Runtime remain active, while Windows `Bad Image` `0xc0e90002` from OpenVINO DLLs cannot break startup.
-
-Working set after install: ~3.5 GB at `/LEAN` (default), ~10 GB at `/FULL`. Every run fresh-downloads the selected vs-mlrt assets and cleans only the `plugins\vsmlrt` subtree before copying runtime DLLs, scripts and models. Extraction via `7zr.exe` (needed for BCJ2-filtered streams in TRT runtime DLLs — `py7zr` cannot decode them).
-
-**Full update order:** if you run `[10] VAPOURSYNTH` or `[11] VS PLUGINS`, run `[13] VS-MLRT LEAN` again before any Full all-presets smoke. ML presets should never be validated against an older MLRT layer after the base VS runtime/plugins were refreshed.
-
-Flags:
-- `/LEAN` (default via `[13]`) — trims TensorRT builder resources to the current SM (detected via `nvidia-smi --query-gpu=compute_cap`), removes unused models (cugan, waifu2x). On non-NVIDIA, falls back to FULL behaviour.
-- `/FULL` (via `[14]`) — full bundle for USB distribution to another machine.
-- `/DROP-CACHE` — after success, calls the central `Clean-Install-Cache` policy for transient install downloads, staging dirs, and bytecode caches.
-- Default from builder = `/LEAN` and keeps install cache. Use `[70] Clean install cache` or `/DROP-CACHE` explicitly to remove cached downloads.
-
-After install, the backend in ML presets is selected **automatically**: TRT (if NVIDIA + matching TRT runtime) → ORT_DML (DirectML, any DX12 GPU including Intel Xe / AMF) → ORT_CPU. Cross-vendor stable (via `audion_lib.vsmlrt_backend_chain()` — on non-NVIDIA we don't even attempt to compile a TRT engine, saving 30–120 s).
-
-**Annoyance**: Windows Defender blocks the unsigned `openvino_intel_npu_plugin.dll`. The script removes it automatically after extract (not needed on NVIDIA / DirectML setups).
-
-### `install\Clean-Install-Cache.{cmd,ps1}` — disk reclaim
-
-Removes transient install downloads (`.7z`, `.zip`, `.tar.*`, `.msi`, `.exe`), exact installer staging dirs, and Python bytecode caches outside payload/user-data zones. Preserve list inside `install\download\` (always kept):
-- `.gitkeep`
-- `get-pip.py` (re-used on every fresh build)
-- `7z*-extra.7z` (Ensure-7zip bootstrap helper, ~2 MB)
-
-When you need it: after a successful `[13] VS-MLRT LEAN` or `[14] VS-MLRT FULL` (~3.5 GB compressed archives), periodically after `Install-Portable-*` (fresh FFmpeg build / new VS R75+).
-
-Philosophy: **storage > bandwidth**. Re-download = ~1.5 minutes on gigabit; 3.5 GB on disk sit there forever. Working set after lean+cleanup: ~3.5 GB instead of 10.
-
-### `install\Repair-PipShims.{cmd,ps1}` — fix `Scripts\*.exe` after a move
-
-**Symptom**: after moving the project to a different drive letter / path / machine, `vspipe.exe` and other `Scripts\*.exe` silently exit 1 with no output. `doctor.py` shows `[FAIL] vspipe runs` while `python.exe -c "import vapoursynth"` works fine.
-
-**Cause**: pip embeds an absolute shebang (`#!"<full python.exe path>"`) inside each `Scripts\*.exe`. After the move, that path no longer exists.
-
-**What to do**: run `install\Repair-PipShims.cmd`. It rewrites the shebang in every `Scripts\*.exe` to the current `system_core\vapoursynth\python.exe`. The launcher stub and trailing zip are left intact.
-
-Flags:
-- `/WHATIF` or `/N` — dry-run preview without writing.
-
-In normal operation **not needed**: `system_core\engine\selfheal.py` is hooked into the start of `main.py` and `doctor.py` — it reads the first 16 KB of `vspipe.exe` on startup, parses the embedded shebang, and on mismatch silently calls `Repair-PipShims.cmd`. Idempotent via `AUDION_SELFHEAL_DONE=1`. Manual repair is needed only if you hit vspipe outside `main.py`/`doctor.py` (e.g. a direct CLI bench script that doesn't go through self-heal).
-
-### `install\Bench-CUDA.{cmd,ps1}` — pure-pipeline CPU vs CUDA on BM3D
-
-**What it benches**: two BM3D-heavy presets (`shadow_denoise_sota` and `filmic_rebuild`), each run twice — on CPU and on CUDA. Pipeline `vspipe → ffmpeg -f null` (no encoding). No-encode is needed so libx264 doesn't eat all wall-time on a fast multi-core CPU and hide the CUDA win.
-
-**How to use**:
-```cmd
-:: Drag-n-drop a file onto Bench-CUDA.cmd, or:
-install\Bench-CUDA.cmd "C:\clips\test.mov"
-install\Bench-CUDA.cmd "C:\clips\test.mov" 2.5    :: second arg = sigma (default 2.5)
-```
-
-**Output**: 4 timing lines + a summary table CPU/CUDA + Δ %. Nothing is written to disk.
-
-**How to read it**:
-- On the reference DCI 4K ProRes 25-second clip (RTX 5070 / Ryzen 9 5900X): `shadow_denoise_sota` = −35%, `filmic_rebuild` = −24%.
-- On clips shorter than ~5 s the CUDA setup cost is not amortized → result can be noise or even slightly slower than CPU.
-- **Task Manager lies**: even on a working CUDA path it often shows 5–10% GPU. BM3D is bandwidth-bound and runs in bursts; surrounding `fmtc` bit-depth conversions and frame-prop tags happen on the CPU. The authoritative "CUDA is alive" signal is the wall-time delta and `[OK] bm3dcuda runtime — live BM3D CUDA invocation succeeded` in `doctor.py`.
-
-### `install\Bench-AllPresets.{cmd,ps1}` ⭐ — smoke across all 28 presets
-
-Walker over `system_core\presets\<palette>\*.vpy`. Every preset is run through `vspipe -c y4m --end <Frames-1> | ffmpeg -f null` — pure pipeline, no disk writes. Smoke goal: confirm that (a) the preset parses, (b) every plugin namespace it needs resolves, (c) frames make it to ffmpeg without exceptions.
-
-**How to use**:
-```cmd
-:: Drag-n-drop, or:
-install\Bench-AllPresets.cmd "C:\clips\test.mp4"
-install\Bench-AllPresets.cmd "C:\clips\test.mp4" 30 sweep auto
-```
-
-Current local references:
-- Portable CPU/ORT fallback: `28/28 PASS` with `Frames=1`, `Cuda=off`, `MlBackend=ort_cpu` (2026-05-16).
-- RTX 5070 validation: `36/36 PASS` with `Frames=1`, `Cuda=sweep`, `MlBackend=auto` (2026-05-27). The 36 rows are 28 presets plus the extra CPU/CUDA Precision sweep.
-
-Arguments:
-1. Video path (required)
-2. Frames per preset (default 30)
-3. Cuda mode: `off` / `on` / `sweep` (default off)
-   - `off` — every preset on CPU
-   - `on` — every Precision preset with `AUDION_VS_USE_CUDA=1`
-   - `sweep` — Precision runs twice (CPU and CUDA), other palettes once
-4. ML backend: `auto` / `trt` / `ort_dml` / `ort_cpu` / `sweep` (default auto)
-   - `auto` — vs-mlrt picks TRT → ORT_DML → ORT_CPU itself
-   - `sweep` — ML presets run twice (auto and ort_cpu) for GPU vs CPU baseline comparison
-
-**How many rows you get**:
-- `off auto` — one row per preset (28 total)
-- `sweep auto` — Precision×2 + others×1 = 8×2 + 7 + 3 + 10 = 36 rows
-- `sweep sweep` — Precision×2 + ML restoration×2 + others×1 = 16 + 7 + 3 + 6 + 4×2 = 40 rows
-
-At the end — Summary `Total / PASS / FAIL`; for `-Cuda sweep` a `CPU vs CUDA Δ %` table over Precision presets, plus a JSON report at `logs\bench_all_presets_<TS>.json`.
-
-**When to run it**:
-- After `Install-VS-Plugins` or `Install-VS-mlrt` — confirm every preset is alive (`PASS == Total`).
-- After moving the project (post-`Repair-PipShims`).
-- After an NVIDIA driver upgrade — to confirm TRT engines rebuild without errors.
-- When adding a new preset — make sure it didn't break neighbour imports.
-
-**Hidden-but-important details**:
-- Per-preset env overrides (`$presetOverrides` table in `Bench-AllPresets.ps1`) — without them `AUDION_VS_STRENGTH=medium` (a Precision tag) breaks Restoration presets (`dehaze`, `derainbow`) that parse STRENGTH as float. And `AUDION_VS_MODEL` differs across ESRGAN / RIFE / DPIR.
-- Separate stderr temp files for vspipe and ffmpeg (a single cmd.exe pipe cannot `2>file.log` from both processes — `ERROR_SHARING_VIOLATION`).
-- Local row vars are **not** named `$cuda` — that would clobber the script param `$Cuda` (PowerShell variables are case-insensitive → ValidateSet breaks on assignment).
-
-### `install\Ensure-7zip.ps1` — dot-source helper for 7-Zip
-
-Not run directly — other `*.ps1` files dot-source it:
-
-```powershell
-. "$PSScriptRoot\Ensure-7zip.ps1"
-$exe = Ensure-7zr -ProjectRoot $ProjectRoot
-Expand-7zArchive -Archive $zip -Destination $dst -ProjectRoot $ProjectRoot
-```
-
-Build env steps `[01]/[02]` explicitly install `7zr.exe` (~1.5 MB, pure 7z extractor with BCJ2 support) and `7za.exe` (~1.7 MB, universal — zip / 7z / tar / gz / bz2 / xz) into `system_core\7zip\` before Python setup. Fetched once, then travels with the project.
-
-Why we need it:
-- `Expand-Archive` (.NET ZipArchive) chokes on ZIPs > 2 GB (BtbN FFmpeg, VS portable) and is memory-hungry.
-- `py7zr` cannot decode BCJ2-filtered streams (vs-mlrt TensorRT runtime DLLs).
-- `7za` is format-stable and portable.
-
-### Quick "when do I call what" map
-
-| Scenario | Scripts in order |
-|---|---|
-| **Fresh install from scratch** | builder_main → `[01]` → `[10]` → `[11]` → `[12]` → `[13]` → opt. `[14]` → `[16]` → doctor.py |
-| **Moved the project to another drive / machine** | doctor.py (selfheal calls Repair-PipShims itself) — or manually `install\Repair-PipShims.cmd` |
-| **Need/update the ML stack** | builder_main → `[13] VS-MLRT LEAN` after `[10]` / `[11]` / `[12]`, then Bench-AllPresets with `-MlBackend sweep` |
-| **Want to confirm CUDA is actually alive** | `install\Bench-CUDA.cmd <video>` — measures real wall-time delta |
-| **Want to confirm all 28 presets work locally without NVIDIA** | `system_core\powershell\pwsh.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File install\Bench-AllPresets.ps1 -ProjectRoot . -InputFile <video> -Frames 1 -Cuda off -MlBackend ort_cpu` |
-| **RTX / TensorRT validation** | `system_core\powershell\pwsh.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File install\Bench-AllPresets.ps1 -ProjectRoot . -InputFile <video> -Frames 1 -Cuda sweep -MlBackend auto` |
-| **Disk is tight** | builder_main → `[16] CLEAN INSTALL CACHE` — frees ~3.5 GB compressed archives |
-| **Updated NVIDIA driver / swapped GPU** | doctor.py (live `bm3dcuda` smoke) → Bench-CUDA → Bench-AllPresets (TRT engines rebuild on first ML preset) |
-| **Added a new preset** | Bench-AllPresets for smoke + register in `engine/presets.py` + add a launcher entry + update this wiki |
-| **Preparing release archive** | builder_main → `[09] Make release archive` — output excludes `output/`, `logs/`, `._runtime/`, `install/download/`, `release/`, API keys, and private `MEMORY.md`; `MEMORY.example.md` stays public |
-
----
-
-## Additional — full reference
-
-- English docstring per preset: at the top of each `system_core/presets/<palette>/<preset>.vpy`
-- CLI flags: `runtime\python.exe system_core\main.py run --help`
-- Profiles (cross-palette combinations): `runtime\python.exe system_core\main.py list-profiles`
-- Recursive batch with mirror folder structure: `apply-profile-batch --recursive`
-- Stack health: `runtime\python.exe system_core\doctor.py`
-- AI / ML stack install and scenarios: see *Install & service scripts* section above → `Install-VS-mlrt.cmd`
-
----
-
-## AI / ML (Phase 18.B-ML) — vs-mlrt stack
-
-These presets use **vs-mlrt** (ONNX inference inside VapourSynth). Backend is auto-selected: `trt` (TensorRT, NVIDIA, fastest) → `ort_dml` (DirectML, any DX12 GPU including Intel Xe / AMF) → `ort_cpu` (CPU fallback). Install via `builder_main.cmd` → `[13] VS-MLRT LEAN` (~3.5 GB download, ~6 GB extracted).
-
-### `vsmlrt_realesrgan_2x` ⭐ — ML 2x upscale
-
-Real-ESRGAN — the de-facto reference for ML video super-resolution. On 1080p input it produces ~3840×2160 with face/fabric sharpness that's **unreachable** via Lanczos / Spline36 / Resolve SuperScale.
-
-- Parameters: `model` (general-x4v3 default / animevideov3 / general-wdn-x4v3 / animejanaiV2-L1/L2/L3), `tile=384`, `tile_pad=16`, `backend=auto`
-- Encoder: `prores_lt` (for downstream work) or `h265_crf14` (final)
-- Not in NLE: real ML upscale (NLE plugins are usually paid add-ons)
-- First TensorRT pass compiles an engine in 30-120s (cached after that)
-
-### `soft_hd_rebuild_2x` — cleanup + ML reconstruction for soft HD
-
-For formally-HD footage whose real detail is closer to 480-720p because of soft optics, binning, aggressive OLPF, old codecs, or archive-generation loss. It cleans the frame first, runs Real-ESRGAN 2x, then applies a conservative luma detail pass.
-
-- Parameters: `rebuild=conservative|balanced|aggressive`, `cleanup=light|medium|strong`, plus Real-ESRGAN `model`, `tile`, `tile_pad`, `backend`
-- Encoder: `prores_lt` for grading/handoff or `h265_crf14` for final delivery
-- When to use: soft 1080p, archive HD with low real frequency content, under-sampled consumer footage
-
-### `vsmlrt_rife_60fps` ⭐ — ML frame interpolation
-
-RIFE 4.x — modern ML model for frame interpolation. Understands content (not just pixel motion) → handles occlusion, transparent objects, fades correctly. Visibly smoother than Resolve Optical Flow on complex motion.
-
-- Parameters: `fps_mul=2.5` (24→60 default; alternatives 2/3/4), `model=rife_v4.6` (default; v4.4 / v4.9), `backend=auto`
-- Encoder: `h264_crf17` or `prores_lt`
-- When to use: 24fps film material → 60Hz target, or slow-mo from regular 24/30/60fps footage
-
-### `dpir_denoise` — ML denoise for heavy noise
-
-DPIR — a deep network for denoise that **preserves** skin and fabric texture where BM3D / DFTTest start to smear. Use it when BM3D "kills" detail on high-ISO material.
-
-- Parameters: `strength=10` (sigma 1-50; 5 light / 10 medium / 15 heavy / 25 very heavy / 50 extreme), `model=drunet_color` (default; gray for B/W; deblocking_color for JPEG/MPEG block artefacts), `tile=384`, `backend=auto`
-- Encoder: `prores_lt` (handoff to colorist) or `h264_crf14` (final)
-- When to use: ISO 6400+, low-light phone, broken-sensor archive
-
----
-
-**Last updated**: 2026-05-27 — 28 presets across 4 palettes, Soft HD Rebuild 2X in Restoration; local CPU/ORT smoke `28/28 PASS` (`Frames=1`, `Cuda=off`, `MlBackend=ort_cpu`); RTX 5070 CUDA/auto smoke `36/36 PASS` (`Frames=1`, `Cuda=sweep`, `MlBackend=auto`).
+The output file carries the colour range of the source (`-color_range`): a full-range source stays full range.

@@ -71,6 +71,15 @@
 !*.scala
 !*.sql
 
+# --- the presets of VapourSynth: a .vpy is a Python script of the engine ---
+!*.vpy
+
+# --- the window on Avalonia (Source\): markup, project files, the manifest and the assets it carries ---
+!*.axaml
+!*.csproj
+!*.manifest
+!Source/Assets/**
+
 # --- configuration and data ---
 !*.json
 !*.yaml
@@ -172,30 +181,50 @@
 # so a clone has its folders back after the first cleanup or build. Present in 28
 # of 31 projects; the three Build tools create their own folders in code.
 # Storing markers here too would give one fact two owners. The script is the owner.
-runtime/
-wheelhouse/
-Tools/
-tools/
-install/download/
-install/downloads/
-logs/
-output/
-report/
-release/
-work/
-workspace/
-input/
-data/cache/
-licenses/
+#
+# Every rule here starts with a slash, which ties it to the project root. Without
+# one a rule matches at any depth: `tools/` hid docs\tools and Source\Tools, and
+# on Windows, where git does not tell case apart, `Tools/` alone did the same.
+/runtime/
+/wheelhouse/
+/Tools/
+/tools/
+/install/download/
+/install/downloads/
+/logs/
+/output/
+/report/
+/release/
+/work/
+/workspace/
+/input/
+/data/cache/
+/licenses/
 
 # No marker needed: these are never expected to exist in a fresh clone.
 node_modules/
 ._runtime/
 _pwsh_tmp/
-system_core/powershell/
+# The engine a person installs (VapourSynth, its Python, plugins, vs-mlrt with models): thousands of .py files of
+# site-packages that the list above would let in.
+system_core/vapoursynth/
+# What a build of the window leaves; App\ is built from Source\.
+Source/bin/
+Source/obj/
+Source/Ps/bin/
+Source/Ps/obj/
+App/
 temp/
 tmp/
 backup/
+# What this machine was found to have (SERVICE - Hardware capabilities, the badges of the header): of the machine, not
+# of the program.
+config/hardware_capabilities_cache.json
+config/components_cache.json
+# The state of the window: its look, the history of paths and of commands - the owner's, not the program's.
+/config/window_settings.json
+/config/path_history.json
+/config/terminal_commands.json
 release_manifest.json
 _archives_public_git/
 _archives_private_git/

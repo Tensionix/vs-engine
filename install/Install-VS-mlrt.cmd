@@ -13,7 +13,8 @@ for %%A in (%*) do if /I "%%~A"=="/NOPAUSE" set "NO_PAUSE=1"
 set "PS1_FILE=%SCRIPT_DIR%\Install-VS-mlrt.ps1"
 set "PS_EXE="
 
-if exist "%ROOT%\system_core\powershell\pwsh.exe" set "PS_EXE=%ROOT%\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+if exist "%ROOT%\App\AudionPs.exe" set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
@@ -96,7 +97,7 @@ echo Mode:       FULL bundle  -^> ~10 GB ^(for offline distribution^)
 goto :eof
 
 :ERR_NOPS
-echo [ERROR] No PowerShell found (portable, system pwsh, or powershell.exe).
+echo [ERROR] No PowerShell found (App\AudionPs.exe, system pwsh, or powershell.exe).
 if not defined NO_PAUSE pause
 exit /b 1
 

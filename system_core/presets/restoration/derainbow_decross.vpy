@@ -28,6 +28,8 @@ import os
 import vapoursynth as vs
 core = vs.core
 
+import audion_lib as al
+
 INPUT    = os.environ["AUDION_VS_INPUT"]
 STRENGTH = max(0.0, min(1.0, float(os.environ.get("AUDION_VS_STRENGTH", "0.6"))))
 BLKSIZE  = int(os.environ.get("AUDION_VS_BLKSIZE", "16"))
@@ -35,14 +37,7 @@ if BLKSIZE not in (8, 16):
     BLKSIZE = 16
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-src = _load(INPUT)
+src = al.load_source(INPUT)
 clip = core.fmtc.bitdepth(src, bits=16)
 
 # Motion search using LUMA (rainbow/dot-crawl don't affect luma vectors).
@@ -66,5 +61,5 @@ weight = STRENGTH
 out = core.std.Merge(clip, avg, weight=[0.0, weight, weight])
 
 out = core.fmtc.bitdepth(out, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

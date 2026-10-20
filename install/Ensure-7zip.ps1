@@ -12,11 +12,10 @@
     - 7za.exe (~1.7 MB)  : universal CLI (zip / 7z / tar / gz / bz2 / xz);
                            extracted from official 7zXXXX-extra.7z using 7zr
 
-  Why 7-Zip and not Expand-Archive / zipfile / py7zr:
+  Why 7-Zip and not Expand-Archive:
     - Expand-Archive is .NET ZipArchive based; chokes on >2 GB ZIPs and is
       memory-hungry on big multi-GB extracts (VapourSynth portable, BtbN
-      FFmpeg, vs-mlrt models)
-    - py7zr cannot decode BCJ2-filtered streams (vs-mlrt TensorRT runtime)
+      FFmpeg)
     - 7za handles every format we ship and is byte-stable across Windows
       builds, which matters for the portable invariant
 

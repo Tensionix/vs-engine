@@ -3,7 +3,6 @@
   Audion VS Engine - install portable BtbN FFmpeg into Tools\ffmpeg.
 
 .DESCRIPTION
-  Adapted from Audion VS Engine Lite's working FFmpeg installer.
   Resolves the selected win64 FFmpeg build, extracts to Tools\ffmpeg,
   exposes bin\ffmpeg.exe and bin\ffprobe.exe.
 
@@ -48,10 +47,13 @@ Write-Host "[PRECHECK] 7-Zip ready: $SevenZipPath"
 
 $LegacyReleaseSeries = '7.1'
 $CurrentReleaseSeries = '8.0'
-$LatestReleaseSeries = '8.1'
+# The newest series from the LTS driver 610.88 and without NVIDIA, an older one below it - as the Gyan installer chooses
+# (its head says why, 18.10.2026); this is the emergency path - by default the Gyan installer takes over (exit 20).
+$LatestReleaseSeries = '9.0'
 $LegacyStableMinimumDriver = [version]'471.41'
 $CurrentStableMinimumDriver = [version]'570.0'
 $LatestStableMinimumDriver = [version]'610.0'
+$GoldenDriver = [version]'610.88'
 $UnsupportedDriverExitCode = 21
 $PreferredStableSeries = $LatestReleaseSeries
 
@@ -104,9 +106,10 @@ if ($nvidia.Present) {
     if ($parsedDriver -lt $CurrentStableMinimumDriver) {
         $PreferredStableSeries = $LegacyReleaseSeries
         Write-Host "[POLICY] NVIDIA driver $($nvidia.Driver): selecting BtbN $PreferredStableSeries compatible release branch."
-    } elseif ($parsedDriver -lt $LatestStableMinimumDriver) {
+    } elseif ($parsedDriver -lt $GoldenDriver) {
         $PreferredStableSeries = $CurrentReleaseSeries
         Write-Host "[POLICY] NVIDIA driver $($nvidia.Driver): selecting BtbN $PreferredStableSeries compatible release branch."
+        Write-Host "[WARN] NVIDIA driver $($nvidia.Driver) is below $GoldenDriver, the LTS driver the programs are built for: FFmpeg $PreferredStableSeries is installed so that NVENC works, and not every operation is possible."
     } else {
         $PreferredStableSeries = $LatestReleaseSeries
         Write-Host "[POLICY] NVIDIA driver $($nvidia.Driver): selecting BtbN $PreferredStableSeries compatible release branch."

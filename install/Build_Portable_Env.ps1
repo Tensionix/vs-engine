@@ -13,11 +13,11 @@ $rootDir = Split-Path -Parent $installDir
 # install 7zr.exe and 7za.exe together with Python so later installers do not
 # depend on hidden lazy setup.
 . (Join-Path $installDir 'Ensure-7zip.ps1')
+
 $downloadDir = Join-Path $installDir "download"
 $runtimeDir = Join-Path $rootDir "runtime"
 $wheelhouseDir = Join-Path $rootDir "wheelhouse"
 $requirementsFile = Join-Path $installDir "requirements_full.in"
-$guiSmokeScript = Join-Path $rootDir "system_core\ui_nicegui\app.py"
 
 $pythonMinor = 12
 $headers = @{ 'User-Agent' = 'Audion-Python-Portable-Template' }
@@ -41,7 +41,7 @@ $getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
 $getPipPath = Join-Path $downloadDir "get-pip.py"
 
 Write-Host "======================================================================"
-Write-Host "AUDION PYTHON PORTABLE TEMPLATE - BUILD PORTABLE ENV (PS)"
+Write-Host "AUDION VS ENGINE - BUILD PORTABLE ENV (PS)"
 Write-Host "======================================================================"
 Write-Host "Root:        $rootDir"
 Write-Host "Install:     $installDir"
@@ -74,7 +74,21 @@ $pthFile = Join-Path $runtimeDir "python3$pythonMinor._pth"
 if (-not (Test-Path $pthFile)) {
     throw "Missing file: $pthFile"
 }
-(Get-Content $pthFile) -replace '^#import site$', 'import site' | Set-Content $pthFile -Encoding ASCII
+$pthLines = Get-Content $pthFile
+$patched = New-Object System.Collections.Generic.List[string]
+$hasProjectRoot = $pthLines -contains ".."
+foreach ($line in $pthLines) {
+    if ($line -eq "#import site") {
+        $patched.Add("import site")
+    } else {
+        $patched.Add($line)
+    }
+    if (-not $hasProjectRoot -and $line -eq ".") {
+        $patched.Add("..")
+        $hasProjectRoot = $true
+    }
+}
+$patched | Set-Content $pthFile -Encoding ASCII
 
 Write-Host "[5/8] Downloading get-pip.py..."
 # A dropped connection here used to kill the whole project build.
@@ -115,18 +129,14 @@ if ($LASTEXITCODE -ne 0) { throw "wheelhouse build failed (exit $LASTEXITCODE)" 
 & $pythonExe -m pip install --disable-pip-version-check --no-index --find-links=$wheelhouseDir -r $requirementsFile
 if ($LASTEXITCODE -ne 0) { throw "package install from wheelhouse failed (exit $LASTEXITCODE)" }
 
-Write-Host "[8/8] Verifying orchestrator + GUI runtime..."
-& $pythonExe -c "import yaml, nicegui, webview, psutil, rich; print('OK orchestrator GUI deps')"
-if ($LASTEXITCODE -ne 0) { throw "GUI/orchestrator dependency import check failed (exit $LASTEXITCODE)" }
-if (Test-Path $guiSmokeScript) {
-    & $pythonExe $guiSmokeScript --smoke
-    if ($LASTEXITCODE -ne 0) { throw "NiceGUI app smoke failed (exit $LASTEXITCODE)" }
-}
+Write-Host "[8/8] Verifying the packages of the engine..."
+& $pythonExe -c "import yaml, pytest; print('OK the packages of the engine')"
+if ($LASTEXITCODE -ne 0) { throw "The packages of the engine do not import (exit $LASTEXITCODE)" }
 
 
 Write-Host ""
 Write-Host "[SUCCESS] Portable environment is ready."
-Write-Host "[INFO] Full stack Doctor is step [04], after VapourSynth/FFmpeg/MLRT install."
+Write-Host "[INFO] Full stack Doctor is step [71], after VapourSynth/FFmpeg install."
 Write-Host "[INFO] Release licensing is generated later from the finalized release contents."
 
 if ($FFmpegSource -ne 'None') {

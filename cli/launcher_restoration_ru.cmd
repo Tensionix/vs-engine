@@ -25,8 +25,6 @@ if errorlevel 1 (
   set "MENU_MODE=FZF"
 )
 
-call :DETECT_GPU
-
 :MAIN
 cls
 echo ======================================================================
@@ -35,7 +33,6 @@ echo ======================================================================
 echo Корень:     %BASE_DIR%
 echo Python:     %PYTHON_CMD% %PYTHON_ARGS%
 echo Меню:       %MENU_MODE%
-echo GPU:        %GPU_STATUS%
 echo Подсказка:  пресетам нужны плагины havsfunc / mvtools / tivtc.
 echo             Запустите builder_main.cmd -^> [12] INSTALL VS PLUGINS один раз.
 echo.
@@ -56,11 +53,13 @@ goto FALLBACK_MENU
 >>"%MENU_FILE%" echo [05] Deblock H.264               ^| deblock         ^| YouTube / WhatsApp / SD broadcast
 >>"%MENU_FILE%" echo [06] Dehaze / локальный контраст ^| dehaze          ^| без halos и color shift
 >>"%MENU_FILE%" echo.
->>"%MENU_FILE%" echo === AI / ML  (vs-mlrt; TensorRT на NVIDIA, DirectML везде) =========
->>"%MENU_FILE%" echo [07] Real-ESRGAN 2x upscale      ^| esrgan          ^| ML апскейл 1080p -^> 4K, чёткие лица/текстура ткани
->>"%MENU_FILE%" echo [08] Soft HD Rebuild 2X          ^| soft_hd         ^| cleanup + ML rebuild для мягкого / недосэмпленного HD
->>"%MENU_FILE%" echo [09] RIFE 60fps интерполяция     ^| rife            ^| ML интерп. кадров 24-^>60fps, ровнее Optical Flow
->>"%MENU_FILE%" echo [10] DPIR ML шумодав             ^| dpir            ^| тяжёлый шум / high-ISO без потери текстуры
+>>"%MENU_FILE%" echo === Чистый апскейл ================================================
+>>"%MENU_FILE%" echo [07] NNEDI3 2x upscale           ^| nnedi3_upscale  ^| увеличение без нейросети
+>>"%MENU_FILE%" echo.
+>>"%MENU_FILE%" echo === Нейросети (нужен MLRT: SETUP, NVIDIA RTX) ======================
+>>"%MENU_FILE%" echo [08] Шумодав DPIR                ^| dpir_denoise    ^| сильный шум / высокое ISO без потери фактуры
+>>"%MENU_FILE%" echo [09] Real-ESRGAN 2x              ^| realesrgan_2x   ^| нейросетевое увеличение вдвое, чёткие лица
+>>"%MENU_FILE%" echo [10] Пересборка мягкого HD 2x    ^| soft_hd_2x      ^| чистка + Real-ESRGAN для мягкого HD
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Сервис ========================================================
 >>"%MENU_FILE%" echo [11] Список энкодеров            ^| list_encoders   ^| H.264 / H.265 / ProRes / DNxHR
@@ -85,10 +84,10 @@ if /I "%RAW%"=="mcdegrain"      goto MCDEGRAIN
 if /I "%RAW%"=="derainbow"      goto DERAINBOW
 if /I "%RAW%"=="deblock"        goto DEBLOCK
 if /I "%RAW%"=="dehaze"         goto DEHAZE
-if /I "%RAW%"=="esrgan"         goto ESRGAN
-if /I "%RAW%"=="soft_hd"        goto SOFT_HD
-if /I "%RAW%"=="rife"           goto RIFE
-if /I "%RAW%"=="dpir"           goto DPIR
+if /I "%RAW%"=="nnedi3_upscale"  goto NNEDI3_UPSCALE
+if /I "%RAW%"=="dpir_denoise"   goto DPIR_DENOISE
+if /I "%RAW%"=="realesrgan_2x"  goto REALESRGAN_2X
+if /I "%RAW%"=="soft_hd_2x"     goto SOFT_HD_2X
 if /I "%RAW%"=="list_encoders"  goto LIST_ENCODERS
 if /I "%RAW%"=="doctor"         goto DOCTOR
 if /I "%RAW%"=="open_input"     goto OPEN_INPUT
@@ -107,11 +106,12 @@ echo [4] Derainbow / decross       (NTSC composite chroma)
 echo === Спасение пережатого ===
 echo [5] Deblock H.264             (YouTube / WhatsApp / SD broadcast)
 echo [6] Dehaze / локальный контраст
-echo === AI / ML (vs-mlrt) ===
-echo [7] Real-ESRGAN 2x апскейл    (1080p -^> 4K, чёткая текстура)
-echo [8] Soft HD Rebuild 2X        (cleanup + ML rebuild мягкого HD)
-echo [9] RIFE 60fps интерполяция   (24-^>60fps, плавнее движение)
-echo [A] DPIR ML шумодав           (тяжёлый шум / high-ISO)
+echo === Чистый апскейл ===
+echo [7] NNEDI3 2x upscale         (увеличение без нейросети)
+echo === Нейросети (нужен MLRT: SETUP, NVIDIA RTX) ===
+echo [8] Шумодав DPIR              (сильный шум / высокое ISO)
+echo [9] Real-ESRGAN 2x            (нейросетевое увеличение вдвое)
+echo [A] Пересборка мягкого HD 2x  (чистка + Real-ESRGAN)
 echo.
 echo === Сервис ===
 echo [B] Список энкодеров
@@ -128,10 +128,10 @@ if errorlevel 14 goto OPEN_OUTPUT
 if errorlevel 13 goto OPEN_INPUT
 if errorlevel 12 goto DOCTOR
 if errorlevel 11 goto LIST_ENCODERS
-if errorlevel 10 goto DPIR
-if errorlevel 9  goto RIFE
-if errorlevel 8  goto SOFT_HD
-if errorlevel 7  goto ESRGAN
+if errorlevel 10 goto SOFT_HD_2X
+if errorlevel 9  goto REALESRGAN_2X
+if errorlevel 8  goto DPIR_DENOISE
+if errorlevel 7  goto NNEDI3_UPSCALE
 if errorlevel 6  goto DEHAZE
 if errorlevel 5  goto DEBLOCK
 if errorlevel 4  goto DERAINBOW
@@ -152,7 +152,7 @@ call :ASK_FIELD_ORDER
 call :ASK_QTGMC_PRESET
 call :ASK_OUTPUT_FPS
 call :ASK_ENCODER
-call :RUN_PRESET qtgmc_deinterlace --field-order %FIELD_ORDER% --qtgmc-preset "%QPRESET%" --output-fps %OUTPUT_FPS%
+call :RUN_PRESET qtgmc_deinterlace field_order %FIELD_ORDER% preset "%QPRESET%" output_fps %OUTPUT_FPS%
 goto MAIN
 
 :TIVTC
@@ -169,7 +169,7 @@ call :ASK_RADIUS_3
 call :ASK_THSAD
 call :ASK_BLKSIZE
 call :ASK_ENCODER
-call :RUN_PRESET mvtools_mcdegrain --radius %RADIUS% --thsad %THSAD% --blksize %BLKSIZE%
+call :RUN_PRESET mvtools_mcdegrain radius %RADIUS% thsad %THSAD% blksize %BLKSIZE%
 goto MAIN
 
 :DERAINBOW
@@ -178,7 +178,7 @@ call :ASK_OUTPUT_FILE derainbow
 call :ASK_DERAINBOW_STRENGTH
 call :ASK_BLKSIZE
 call :ASK_ENCODER
-call :RUN_PRESET derainbow_decross --strength %STRENGTH% --blksize %BLKSIZE%
+call :RUN_PRESET derainbow_decross strength %STRENGTH% blksize %BLKSIZE%
 goto MAIN
 
 :DEBLOCK
@@ -186,7 +186,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE deblock
 call :ASK_DEBLOCK_QUANT
 call :ASK_ENCODER
-call :RUN_PRESET deblock_h264_artefacts --quant1 %QUANT1% --quant2 %QUANT2%
+call :RUN_PRESET deblock_h264_artefacts quant1 %QUANT1% quant2 %QUANT2%
 goto MAIN
 
 :DEHAZE
@@ -195,54 +195,58 @@ call :ASK_OUTPUT_FILE dehaze
 call :ASK_DEHAZE_STRENGTH
 call :ASK_DEHAZE_RADIUS
 call :ASK_ENCODER
-call :RUN_PRESET dehaze_local_contrast --strength %STRENGTH% --radius %RADIUS%
+call :RUN_PRESET dehaze_local_contrast strength %STRENGTH% radius %RADIUS%
 goto MAIN
 
-:ESRGAN
+:NNEDI3_UPSCALE
 call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE esrgan
+call :ASK_OUTPUT_FILE nnedi3_2x
+call :ASK_NNEDI3_QUALITY
+call :ASK_NNEDI3_CHROMA
+call :ASK_ENCODER
+call :RUN_PRESET nnedi3_upscale_2x quality %QUALITY% chroma %CHROMA%
+goto MAIN
+
+:DPIR_DENOISE
+call :NOTE_MLRT
+call :ASK_INPUT_FILE
+call :ASK_OUTPUT_FILE dpir_denoise
+call :ASK_DPIR_STRENGTH
+call :ASK_DPIR_MODEL
+call :ASK_DPIR_TILE
+call :ASK_VS_ACCEL
+call :ASK_ENCODER
+call :RUN_PRESET dpir_denoise strength %STRENGTH% model %MODEL% tile %TILE% vs_accel %VS_ACCEL%
+goto MAIN
+
+:REALESRGAN_2X
+call :NOTE_MLRT
+call :ASK_INPUT_FILE
+call :ASK_OUTPUT_FILE realesrgan_2x
 call :ASK_ESRGAN_MODEL
 call :ASK_ML_TILE
-call :ASK_ML_BACKEND
+call :ASK_ML_TILE_PAD
+call :ASK_VS_ACCEL
 call :ASK_ENCODER
-call :RUN_PRESET vsmlrt_realesrgan_2x --model %MODEL% --tile %TILE% --backend %BACKEND%
+call :RUN_PRESET vsmlrt_realesrgan_2x model %MODEL% tile %TILE% tile_pad %TILE_PAD% vs_accel %VS_ACCEL%
 goto MAIN
 
-:SOFT_HD
+:SOFT_HD_2X
+call :NOTE_MLRT
 call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE soft_hd_2x
 call :ASK_SOFT_HD_REBUILD
 call :ASK_SOFT_HD_CLEANUP
 call :ASK_ESRGAN_MODEL
 call :ASK_ML_TILE
-call :ASK_ML_BACKEND
+call :ASK_ML_TILE_PAD
+call :ASK_VS_ACCEL
 call :ASK_ENCODER
-call :RUN_PRESET soft_hd_rebuild_2x --rebuild %REBUILD% --cleanup %CLEANUP% --model %MODEL% --tile %TILE% --backend %BACKEND%
-goto MAIN
-
-:RIFE
-call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE rife
-call :ASK_RIFE_FPS_MUL
-call :ASK_RIFE_MODEL
-call :ASK_ML_BACKEND
-call :ASK_ENCODER
-call :RUN_PRESET vsmlrt_rife_60fps --fps-mul %FPS_MUL% --model %MODEL% --backend %BACKEND%
-goto MAIN
-
-:DPIR
-call :ASK_INPUT_FILE
-call :ASK_OUTPUT_FILE dpir
-call :ASK_DPIR_STRENGTH
-call :ASK_DPIR_MODEL
-call :ASK_ML_TILE
-call :ASK_ML_BACKEND
-call :ASK_ENCODER
-call :RUN_PRESET dpir_denoise --strength %STRENGTH% --model %MODEL% --tile %TILE% --backend %BACKEND%
+call :RUN_PRESET soft_hd_rebuild_2x rebuild %REBUILD% cleanup %CLEANUP% model %MODEL% tile %TILE% tile_pad %TILE_PAD% vs_accel %VS_ACCEL%
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -273,14 +277,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Enter = взять папку input, либо вставьте путь к файлу/папке.
 set /p SRC_PATH=Файл или папка [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Файл сохранения [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Папка результата [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_FIELD_ORDER
@@ -427,31 +433,137 @@ if /I "%RADIUS%"=="3" set "RADIUS=12"
 if /I "%RADIUS%"=="4" set "RADIUS=16"
 goto :eof
 
+:ASK_NNEDI3_QUALITY
+set "QUALITY="
+echo.
+echo Качество / скорость NNEDI3:
+echo   1 - fast      (быстрее)
+echo   2 - balanced  (по умолчанию)
+echo   3 - best      (медленнее, чище края)
+set /p QUALITY=Выбор [2] :
+if not defined QUALITY set "QUALITY=balanced"
+if /I "%QUALITY%"=="1" set "QUALITY=fast"
+if /I "%QUALITY%"=="2" set "QUALITY=balanced"
+if /I "%QUALITY%"=="3" set "QUALITY=best"
+goto :eof
+
+:ASK_NNEDI3_CHROMA
+set "CHROMA="
+echo.
+echo Апскейл chroma:
+echo   1 - spline36  (по умолчанию, безопасно)
+echo   2 - nnedi3    (резче, медленнее)
+set /p CHROMA=Выбор [1] :
+if not defined CHROMA set "CHROMA=spline36"
+if /I "%CHROMA%"=="1" set "CHROMA=spline36"
+if /I "%CHROMA%"=="2" set "CHROMA=nnedi3"
+goto :eof
+
+:NOTE_MLRT
+echo.
+echo [INFO] Нейросетевой пресет: нужен MLRT - SETUP окна или vs_cli.cmd run --operation install_mlrt (NVIDIA RTX).
+echo        Без MLRT запуск остановится на [PREFLIGHT] FAIL MLRT.
+goto :eof
+
+:ASK_DPIR_STRENGTH
+set "STRENGTH="
+echo.
+echo Сила DPIR (уровень шума, на который рассчитана сеть):
+echo   1 - 5    (лёгкий шум; низкое ISO)
+echo   2 - 10   (по умолчанию; средний / ISO 1600-3200)
+echo   3 - 15   (сильный / ISO 6400+)
+echo   4 - 25   (очень сильный / ISO 12800, телефон в темноте)
+echo   5 - 50   (экстрим / битый сенсор или жёсткое сжатие)
+set /p STRENGTH=Выбор [2] :
+if not defined STRENGTH set "STRENGTH=10"
+if /I "%STRENGTH%"=="1" set "STRENGTH=5"
+if /I "%STRENGTH%"=="2" set "STRENGTH=10"
+if /I "%STRENGTH%"=="3" set "STRENGTH=15"
+if /I "%STRENGTH%"=="4" set "STRENGTH=25"
+if /I "%STRENGTH%"=="5" set "STRENGTH=50"
+goto :eof
+
+:ASK_DPIR_MODEL
+set "MODEL="
+echo.
+echo Модель DPIR:
+echo   1 - drunet_color              (по умолчанию; цветное видео)
+echo   2 - drunet_gray               (только яркость; цвет остаётся как есть)
+echo   3 - drunet_deblocking_color   (ещё и блоки JPEG/MPEG)
+echo   4 - drunet_deblocking_gray    (блоки, только яркость)
+set /p MODEL=Выбор [1] :
+if not defined MODEL set "MODEL=drunet_color"
+if /I "%MODEL%"=="1" set "MODEL=drunet_color"
+if /I "%MODEL%"=="2" set "MODEL=drunet_gray"
+if /I "%MODEL%"=="3" set "MODEL=drunet_deblocking_color"
+if /I "%MODEL%"=="4" set "MODEL=drunet_deblocking_gray"
+goto :eof
+
+:ASK_DPIR_TILE
+set "TILE="
+echo.
+echo Размер плитки сети (меньше = меньше видеопамяти, медленнее):
+echo   1 - 256   (мало видеопамяти; карты 4-6 GB)
+echo   2 - 384   (по умолчанию; карты 8 GB)
+echo   3 - 512   (быстрее; карты 12 GB+)
+set /p TILE=Выбор [2] :
+if not defined TILE set "TILE=384"
+if /I "%TILE%"=="1" set "TILE=256"
+if /I "%TILE%"=="2" set "TILE=384"
+if /I "%TILE%"=="3" set "TILE=512"
+goto :eof
+
 :ASK_ESRGAN_MODEL
 set "MODEL="
 echo.
-echo Real-ESRGAN модель:
-echo   1 - general-x4v3       (по умолчанию; live-action / смешанный контент)
-echo   2 - animevideov3       (резко на мультах / 2D анимации)
-echo   3 - general-wdn-x4v3   (general с доп. шумодавом)
-echo   4 - animejanaiV2-L1    (новый аниме, лёгкий)
-echo   5 - animejanaiV2-L2    (новый аниме, балансный)
-echo   6 - animejanaiV2-L3    (новый аниме, тяжёлый)
+echo Модель Real-ESRGAN (все - для рисованной анимации):
+echo   1 - animevideov3       (по умолчанию; самая лёгкая)
+echo   2 - animejanaiV2-L1    (AnimeJaNai, лёгкая)
+echo   3 - animejanaiV2-L2    (AnimeJaNai, сбалансированная)
+echo   4 - animejanaiV2-L3    (AnimeJaNai, самая сильная)
 set /p MODEL=Выбор [1] :
-if not defined MODEL set "MODEL=general-x4v3"
-if /I "%MODEL%"=="1" set "MODEL=general-x4v3"
-if /I "%MODEL%"=="2" set "MODEL=animevideov3"
-if /I "%MODEL%"=="3" set "MODEL=general-wdn-x4v3"
-if /I "%MODEL%"=="4" set "MODEL=animejanaiV2-L1"
-if /I "%MODEL%"=="5" set "MODEL=animejanaiV2-L2"
-if /I "%MODEL%"=="6" set "MODEL=animejanaiV2-L3"
+if not defined MODEL set "MODEL=animevideov3"
+if /I "%MODEL%"=="1" set "MODEL=animevideov3"
+if /I "%MODEL%"=="2" set "MODEL=animejanaiV2-L1"
+if /I "%MODEL%"=="3" set "MODEL=animejanaiV2-L2"
+if /I "%MODEL%"=="4" set "MODEL=animejanaiV2-L3"
+goto :eof
+
+:ASK_ML_TILE
+set "TILE="
+echo.
+echo Размер плитки сети (меньше = меньше видеопамяти, медленнее):
+echo   1 - 256   (мало видеопамяти; карты 4-6 GB)
+echo   2 - 384   (по умолчанию; карты 8 GB)
+echo   3 - 512   (быстрее; карты 12 GB+)
+echo   4 - 768   (максимум скорости; 16 GB+ / 4090 / 5070+)
+set /p TILE=Выбор [2] :
+if not defined TILE set "TILE=384"
+if /I "%TILE%"=="1" set "TILE=256"
+if /I "%TILE%"=="2" set "TILE=384"
+if /I "%TILE%"=="3" set "TILE=512"
+if /I "%TILE%"=="4" set "TILE=768"
+goto :eof
+
+:ASK_ML_TILE_PAD
+set "TILE_PAD="
+echo.
+echo Перекрытие плиток в пикселях (прячет швы между плитками):
+echo   1 - 8    (меньше перекрытие, чуть быстрее)
+echo   2 - 16   (по умолчанию)
+echo   3 - 32   (шире перекрытие, швы надёжнее, медленнее)
+set /p TILE_PAD=Выбор [2] :
+if not defined TILE_PAD set "TILE_PAD=16"
+if /I "%TILE_PAD%"=="1" set "TILE_PAD=8"
+if /I "%TILE_PAD%"=="2" set "TILE_PAD=16"
+if /I "%TILE_PAD%"=="3" set "TILE_PAD=32"
 goto :eof
 
 :ASK_SOFT_HD_REBUILD
 set "REBUILD="
 echo.
-echo Сила Soft HD rebuild:
-echo   1 - conservative  (бережнее к краям, меньше halos)
+echo Сила пересборки мягкого HD:
+echo   1 - conservative  (бережно к краям, без ореолов)
 echo   2 - balanced      (по умолчанию)
 echo   3 - aggressive    (очень мягкий исходник)
 set /p REBUILD=Выбор [2] :
@@ -464,10 +576,10 @@ goto :eof
 :ASK_SOFT_HD_CLEANUP
 set "CLEANUP="
 echo.
-echo Очистка перед ML:
-echo   1 - light
+echo Чистка перед нейросетью (чтобы она не увеличивала шум и блоки):
+echo   1 - light   (слабо)
 echo   2 - medium  (по умолчанию)
-echo   3 - strong
+echo   3 - strong  (сильно)
 set /p CLEANUP=Выбор [2] :
 if not defined CLEANUP set "CLEANUP=medium"
 if /I "%CLEANUP%"=="1" set "CLEANUP=light"
@@ -475,109 +587,18 @@ if /I "%CLEANUP%"=="2" set "CLEANUP=medium"
 if /I "%CLEANUP%"=="3" set "CLEANUP=strong"
 goto :eof
 
-:ASK_RIFE_MODEL
-set "MODEL="
+:ASK_VS_ACCEL
+set "VS_ACCEL="
 echo.
-echo Версия RIFE:
-echo   1 - rife_v4.6  (по умолчанию; балансный, modern)
-echo   2 - rife_v4.4  (старее, проверенный)
-echo   3 - rife_v4.9  (новейший в vs-mlrt)
-set /p MODEL=Выбор [1] :
-if not defined MODEL set "MODEL=rife_v4.6"
-if /I "%MODEL%"=="1" set "MODEL=rife_v4.6"
-if /I "%MODEL%"=="2" set "MODEL=rife_v4.4"
-if /I "%MODEL%"=="3" set "MODEL=rife_v4.9"
-goto :eof
-
-:ASK_RIFE_FPS_MUL
-set "FPS_MUL="
-echo.
-echo Множитель FPS:
-echo   1 - 2     (24 -^> 48 fps; плавное воспроизведение)
-echo   2 - 2.5   (24 -^> 60 fps; для 60Hz мониторов, default)
-echo   3 - 3     (24 -^> 72 fps)
-echo   4 - 4     (24 -^> 96 fps; кинематографический slow-mo)
-set /p FPS_MUL=Выбор [2] :
-if not defined FPS_MUL set "FPS_MUL=2.5"
-if /I "%FPS_MUL%"=="1" set "FPS_MUL=2"
-if /I "%FPS_MUL%"=="2" set "FPS_MUL=2.5"
-if /I "%FPS_MUL%"=="3" set "FPS_MUL=3"
-if /I "%FPS_MUL%"=="4" set "FPS_MUL=4"
-goto :eof
-
-:ASK_DPIR_MODEL
-set "MODEL="
-echo.
-echo DPIR модель:
-echo   1 - drunet_color              (по умолчанию; цветное видео)
-echo   2 - drunet_gray               (Ч/Б материал)
-echo   3 - drunet_deblocking_color   (специально для JPEG/MPEG блочности)
-echo   4 - drunet_deblocking_gray    (Ч/Б с блочностью)
-set /p MODEL=Выбор [1] :
-if not defined MODEL set "MODEL=drunet_color"
-if /I "%MODEL%"=="1" set "MODEL=drunet_color"
-if /I "%MODEL%"=="2" set "MODEL=drunet_gray"
-if /I "%MODEL%"=="3" set "MODEL=drunet_deblocking_color"
-if /I "%MODEL%"=="4" set "MODEL=drunet_deblocking_gray"
-goto :eof
-
-:ASK_DPIR_STRENGTH
-set "STRENGTH="
-echo.
-echo DPIR sigma (оценка уровня шума, на которую обусловлена модель):
-echo   1 - 5    (лёгкий shot noise; low ISO digital)
-echo   2 - 10   (по умолчанию; средний / ISO 1600-3200)
-echo   3 - 15   (тяжёлый / ISO 6400+)
-echo   4 - 25   (очень тяжёлый / ISO 12800, low-light phone)
-echo   5 - 50   (экстрим / битый сенсор или жёсткая компрессия)
-set /p STRENGTH=Выбор [2] :
-if not defined STRENGTH set "STRENGTH=10"
-if /I "%STRENGTH%"=="1" set "STRENGTH=5"
-if /I "%STRENGTH%"=="2" set "STRENGTH=10"
-if /I "%STRENGTH%"=="3" set "STRENGTH=15"
-if /I "%STRENGTH%"=="4" set "STRENGTH=25"
-if /I "%STRENGTH%"=="5" set "STRENGTH=50"
-goto :eof
-
-:ASK_ML_TILE
-set "TILE="
-echo.
-echo Размер плитки ML inference (меньше = меньше VRAM, медленнее):
-echo   1 - 256   (low VRAM; 4-6 GB карты)
-echo   2 - 384   (по умолчанию; 8 GB карты)
-echo   3 - 512   (быстрее; 12 GB+ карты)
-echo   4 - 768   (макс. throughput; 16 GB+ / 4090 / 5070+)
-set /p TILE=Выбор [2] :
-if not defined TILE set "TILE=384"
-if /I "%TILE%"=="1" set "TILE=256"
-if /I "%TILE%"=="2" set "TILE=384"
-if /I "%TILE%"=="3" set "TILE=512"
-if /I "%TILE%"=="4" set "TILE=768"
-goto :eof
-
-:ASK_ML_BACKEND
-set "BACKEND="
-echo.
-echo Backend для inference vs-mlrt:
-echo   1 - auto      (по умолчанию; TRT -^> ORT_DML -^> ORT_CPU)
-echo   2 - trt       (TensorRT; только NVIDIA, самый быстрый)
-echo   3 - ort_dml   (DirectML; любой DX12 GPU включая Intel/AMF)
-echo   4 - ort_cpu   (CPU fallback; самый медленный, всегда работает)
-if "%HAS_NVIDIA%"=="0" echo   [INFO] NVIDIA GPU не обнаружена -- "trt" упадёт; "auto" выберет ORT_DML / ORT_CPU.
-set /p BACKEND=Выбор [1] :
-if not defined BACKEND set "BACKEND=auto"
-if /I "%BACKEND%"=="1" set "BACKEND=auto"
-if /I "%BACKEND%"=="2" set "BACKEND=trt"
-if /I "%BACKEND%"=="3" set "BACKEND=ort_dml"
-if /I "%BACKEND%"=="4" set "BACKEND=ort_cpu"
-if /I "%BACKEND%"=="trt" if not "%HAS_NVIDIA%"=="1" (
-  echo.
-  echo [WARN] Выбран "trt", но nvidia-smi не нашла GPU.
-  echo        TensorRT требует NVIDIA -- запуск упадёт после инициализации движка.
-  echo        Переключаемся на "auto", чтобы vs-mlrt сам выбрал ORT_DML / ORT_CPU.
-  set "BACKEND=auto"
-  if not defined AUDION_NO_PAUSE pause
-)
+echo Где работает нейросеть:
+echo   1 - auto  (по умолчанию; TensorRT на NVIDIA RTX, иначе DirectML на видеокарте, иначе процессор)
+echo   2 - cpu   (ONNX Runtime на процессоре; работает везде, во много раз медленнее)
+echo   3 - gpu   (видеокарта: TensorRT на NVIDIA RTX, DirectML на другой карте)
+set /p VS_ACCEL=Выбор [1] :
+if not defined VS_ACCEL set "VS_ACCEL=auto"
+if /I "%VS_ACCEL%"=="1" set "VS_ACCEL=auto"
+if /I "%VS_ACCEL%"=="2" set "VS_ACCEL=cpu"
+if /I "%VS_ACCEL%"=="3" set "VS_ACCEL=gpu"
 goto :eof
 
 :ASK_ENCODER
@@ -615,7 +636,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -625,7 +647,7 @@ echo       вход:    %SRC_PATH%
 echo       выход:   %DST_PATH%
 echo       энкодер: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette restoration --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof
@@ -678,23 +700,6 @@ if not errorlevel 1 (
 exit /b 1
 :PY_OK
 exit /b 0
-
-:DETECT_GPU
-rem Probe NVIDIA via nvidia-smi (ships with R525+ driver). Result drives the
-rem ML-backend sanity guard so users don't pick "trt" on a non-NVIDIA box and
-rem waste minutes on a doomed TensorRT init.
-set "HAS_NVIDIA=0"
-set "GPU_STATUS=NVIDIA не найден -- vs-mlrt пойдёт через DirectML / CPU"
-nvidia-smi --query-gpu=name --format=csv,noheader >nul 2>&1
-if not errorlevel 1 (
-  set "HAS_NVIDIA=1"
-  for /f "usebackq delims=" %%g in (`nvidia-smi --query-gpu^=name --format^=csv^,noheader 2^>nul`) do (
-    set "GPU_STATUS=NVIDIA %%g (TensorRT доступен)"
-    goto :GPU_DONE
-  )
-)
-:GPU_DONE
-goto :eof
 
 :RESOLVE_FZF
 set "FZF_CMD="

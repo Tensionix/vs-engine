@@ -10,10 +10,14 @@
 #   AUDION_VS_DENOISE     "light" | "medium" | "strong"   default "light"
 #                            DFTTest sigma: light=4, medium=8, strong=14
 #   AUDION_VS_RANGE       neo_f3kdb range.                default 10
+#   AUDION_VS_NOISE       "auto" | "fixed"                default "auto"
+#                            auto: the noise measured in the source raises the sigma (never below the table)
 #
 import os
 import vapoursynth as vs
 core = vs.core
+
+import audion_lib as al
 
 INPUT   = os.environ["AUDION_VS_INPUT"]
 DENOISE = os.environ.get("AUDION_VS_DENOISE", "light").lower()
@@ -21,17 +25,15 @@ SIGMA   = {"light": 4.0, "medium": 8.0, "strong": 14.0}.get(DENOISE, 4.0)
 RANGE   = int(os.environ.get("AUDION_VS_RANGE", "10"))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
+clip = al.load_source(INPUT)
 
-
-clip = _load(INPUT)
+# DFTTest's sigma is a power: it follows the square of the measured noise.
+NOISE = al.measured_noise(clip)
+SIGMA = al.by_noise(SIGMA, NOISE and NOISE[0], power=2)
+al.report_noise("archive_clean", NOISE, f"DFTTest sigma {SIGMA:.1f}")
 
 # Mild DFTTest denoise on all planes
-clip = core.dfttest.DFTTest(clip, sigma=SIGMA, tbsize=3, planes=[0, 1, 2])
+clip = al.dfttest(clip, sigma=SIGMA, tbsize=3, planes=[0, 1, 2])
 
 # Light deband (no grain)
 clip = core.fmtc.bitdepth(clip, bits=16)
@@ -42,5 +44,5 @@ clip = core.neo_f3kdb.Deband(
     sample_mode=2,
 )
 clip = core.fmtc.bitdepth(clip, bits=10)
-clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 clip.set_output()

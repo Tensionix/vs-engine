@@ -1,6 +1,8 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableExtensions EnableDelayedExpansion
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
 
 title Audion VS Engine - Главный лаунчер (Русский)
 
@@ -44,7 +46,7 @@ goto FALLBACK_MENU
 >>"%MENU_FILE%" echo [01] Precision Engine                 ^| precision      ^| шумодав / дебанд / зерно (технический)
 >>"%MENU_FILE%" echo [02] Film Looks Engine                ^| film_looks     ^| Cinematic / 35mm / 16mm / Super 8 / Bleach Bypass
 >>"%MENU_FILE%" echo [03] Retro Engine                     ^| retro          ^| VHS / CRT / Camcorder 90s
->>"%MENU_FILE%" echo [3a] Restoration Engine               ^| restoration    ^| QTGMC / TIVTC / rescue / ML upscale / Soft HD rebuild
+>>"%MENU_FILE%" echo [3a] Restoration Engine               ^| restoration    ^| QTGMC / TIVTC / MCDeGrain / deblock / dehaze / NNEDI3 2x
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Сервис ========================================================
 >>"%MENU_FILE%" echo [04] Доктор (полная диагностика)      ^| doctor         ^| VS / плагины / FFmpeg / CUDA
@@ -100,7 +102,7 @@ echo === Движки ===
 echo [P] Precision Engine     (шумодав / дебанд / зерно)
 echo [F] Film Looks Engine    (Cinematic / 35mm / 16mm / Super 8)
 echo [R] Retro Engine         (VHS / CRT / Camcorder 90s)
-echo [N] Restoration Engine   (QTGMC / TIVTC / rescue / ML upscale / Soft HD)
+echo [N] Restoration Engine   (QTGMC / TIVTC / MCDeGrain / deblock / dehaze / NNEDI3 2x)
 echo.
 echo === Сервис ===
 echo [D] Доктор
@@ -191,17 +193,17 @@ if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
 :LIST_PRESETS
-call :RUNPY "%CORE_DIR%\main.py" list-presets
+call "%BASE_DIR%\vs_cli.cmd" list presets
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
 :INFO
-call :RUNPY "%CORE_DIR%\main.py" info
+call "%BASE_DIR%\vs_cli.cmd" list paths
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -210,7 +212,7 @@ set "SRC_PATH="
 echo.
 set /p SRC_PATH=Файл для анализа [Enter -- взять из папки input] :
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
-call :RUNPY "%CORE_DIR%\main.py" probe --input "%SRC_PATH%"
+call "%BASE_DIR%\vs_cli.cmd" run --operation probe_source --source "%SRC_PATH%"
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -247,7 +249,7 @@ echo   ПРИМЕНИТЬ ПРОФИЛЬ К ФАЙЛУ ИЛИ ПАПКЕ
 echo ======================================================================
 echo Доступные профили (встроенные + пользовательские JSON в config\profiles):
 echo.
-call :RUNPY "%CORE_DIR%\main.py" list-profiles
+call "%BASE_DIR%\vs_cli.cmd" list profiles
 if errorlevel 1 ( pause & goto MAIN )
 echo.
 set "PROF_NAME="
@@ -276,21 +278,16 @@ if not exist "%SRC_PATH%" (
   if not defined AUDION_NO_PAUSE pause & goto MAIN
 )
 set "DST_PATH="
-set /p DST_PATH=Путь сохранения [Enter = output\^<имя^>__%PROF_NAME%.mp4]:
+set /p DST_PATH=Папка результата [output] :
 set "DST_PATH=%DST_PATH:"=%"
-if not defined DST_PATH (
-  for %%I in ("%SRC_PATH%") do set "DST_PATH=%BASE_DIR%\output\%%~nI__%PROF_NAME%.mp4"
-)
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 echo.
-choice /C YN /N /M "Выбросить аудио? [Y] да / [N] нет: "
-set "AUDIO_FLAG=--no-audio"
-if errorlevel 2 set "AUDIO_FLAG="
-echo.
-echo [run] apply-profile %PROF_NAME%
+echo [run] profile %PROF_NAME%
 echo       in:  %SRC_PATH%
 echo       out: %DST_PATH%
+echo       audio: auto copy; ProRes -> lossy = AAC 384k
 echo.
-call :RUNPY "%CORE_DIR%\main.py" apply-profile --name "%PROF_NAME%" --input "%SRC_PATH%" --output "%DST_PATH%" %AUDIO_FLAG%
+call "%BASE_DIR%\vs_cli.cmd" run --operation profile_run --set "profile=%PROF_NAME%" --source "%SRC_PATH%" --target "%DST_PATH%"
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
@@ -310,20 +307,13 @@ set /p DST_DIR=Папка назначения [Enter = output\]:
 set "DST_DIR=%DST_DIR:"=%"
 if not defined DST_DIR set "DST_DIR=%BASE_DIR%\output"
 echo.
-choice /C YN /N /M "Заходить во вложенные папки? [Y] да / [N] нет: "
-set "REC_FLAG=--recursive"
-if errorlevel 2 set "REC_FLAG="
-echo.
-choice /C YN /N /M "Выбросить аудио? [Y] да / [N] нет: "
-set "AUDIO_FLAG=--no-audio"
-if errorlevel 2 set "AUDIO_FLAG="
-echo.
-echo [run] apply-profile-batch %PROF_NAME%
+echo [run] profile %PROF_NAME%
 echo       in:  %SRC_DIR%
 echo       out: %DST_DIR%
-echo       %REC_FLAG% %AUDIO_FLAG%
+echo       подпапки: все, дерево сохраняется
+echo       audio: auto copy; ProRes -> lossy = AAC 384k
 echo.
-call :RUNPY "%CORE_DIR%\main.py" apply-profile-batch --name "%PROF_NAME%" --input-dir "%SRC_DIR%" --output-dir "%DST_DIR%" %REC_FLAG% %AUDIO_FLAG%
+call "%BASE_DIR%\vs_cli.cmd" run --operation profile_run --set "profile=%PROF_NAME%" --source "%SRC_DIR%" --target "%DST_DIR%"
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto MAIN

@@ -1,0 +1,64 @@
+# Camera RAW the engine does not read, and the programs that open it - the same table as in Audion Media Tools.
+#
+# The source plugins of VapourSynth read none of it. A run that meets such a file says so in a line of its preflight -
+# the kind and the programs below with their download pages; they are installed by the person, from their makers, under
+# their makers' terms: the program neither downloads nor carries them.
+#
+# How a file is known (system_core\core\camera_raw.py): ProRes RAW by the codec its MOV header names ('aprn', 'aprh');
+# ARRIRAW and Sony RAW in MXF by the label of the picture its header names; the others by the kind of their files.
+#
+# The pages move: Media Tools asks each one (its tests\probe_raw_pages.py); a page that moved is put here and there.
+
+programs:
+  resolve:
+    name: "DaVinci Resolve"
+    page: "https://www.blackmagicdesign.com/products/davinciresolve"
+  final_cut:
+    name: "Final Cut Pro"
+    page: "https://www.apple.com/final-cut-pro/"
+  art:
+    name: "ARRI Reference Tool"
+    page: "https://www.arri.com/en/learn/camera-systems/tools/arri-reference-tool"
+  redcine:
+    name: "REDCINE-X PRO"
+    page: "https://www.reddigitalcinema.com/download/redcine-x-pro-win"
+  braw_player:
+    name: "Blackmagic RAW Player"
+    page: "https://www.blackmagicdesign.com/products/blackmagicraw"
+  sony_raw_viewer:
+    name: "Sony RAW Viewer"
+    page: "https://www.sony.jp/ls-camera/download/rawviewer/"
+  canon_crd:
+    name: "Canon Cinema RAW Development"
+    page: "https://hk.canon/en/support/0200767202"
+
+# A kind: its name, why FFmpeg does not develop it (without `why` - it does not decode it), the kinds of its own files
+# (`files` - files no operation takes), and what opens it, first the maker's program.
+kinds:
+  prores_raw:
+    name: "ProRes RAW"
+    why: "FFmpeg gives the signal of the sensor without the white balance and the colour matrix of the camera"
+    open: [resolve, final_cut]
+  arriraw:
+    name: "ARRIRAW"
+    files: [".ari", ".arx"]
+    open: [art, resolve]
+  r3d:
+    name: "RED R3D"
+    files: [".r3d"]
+    open: [redcine, resolve]
+  nraw:
+    name: "Nikon N-RAW"
+    files: [".nev"]
+    open: [resolve, redcine]
+  braw:
+    name: "Blackmagic RAW"
+    files: [".braw"]
+    open: [braw_player, resolve]
+  sony_raw:
+    name: "Sony RAW / X-OCN"
+    open: [sony_raw_viewer, resolve]
+  canon_raw:
+    name: "Canon Cinema RAW"
+    files: [".crm", ".rmf"]
+    open: [canon_crd, resolve]

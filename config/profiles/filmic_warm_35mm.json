@@ -5,6 +5,6 @@
     "stock": "250D",
     "intensity": 1.0
   },
-  "encoder": "h264_crf18",
+  "encoder": "h264_crf14",
   "description": "Kodak 250D 35mm filmic look at intensity 1.0"
 }

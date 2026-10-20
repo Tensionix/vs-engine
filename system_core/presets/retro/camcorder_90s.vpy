@@ -50,7 +50,7 @@ clip16 = core.std.ShufflePlanes([clip16, u_b, v_b], [0, 0, 0], vs.YUV)
 
 # ---- 6. Mild grain ----
 if GRAIN_LEVEL > 0:
-    clip16 = core.grain.Add(
+    clip16 = al.add_grain(
         clip16,
         var=GRAIN_LEVEL * 1.2,
         uvar=GRAIN_LEVEL * 0.4,

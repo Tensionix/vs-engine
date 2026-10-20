@@ -1,0 +1,128 @@
+# Where every operation stands in the window on Avalonia.
+#
+# config\tool_manifest.yaml says what an operation is; this file says where it stands: a section - a large button of
+# the ribbon under the header, a palette or PROFILES - and inside it the ribbon of its modes, the presets by their
+# friendly names. The console command hands it to the window with `describe`.
+#
+#   about:  what a section is for - the second line of its button
+#   icon:   a name of Lucide (E:\TOOLS\Lucide-Icons); the window carries the ones named here
+#   groups: the presets of a palette by the kind of processing (the owner, 18.10.2026: "распределим все группы пресетов
+#           по переключателям для каждого вида обработки"): a group is a caption and its switches; groups stand side
+#           by side while they fit the width, a rule between them
+#   short:  the name of a preset on its switch, inside its group; the page and the tooltip keep its full name
+#
+# setup:    what the program needs to work - the engine, its plugins, FFmpeg, MLRT with an NVIDIA RTX card - installed,
+#           updated, removed: the button SETUP in the header, apart from the switches of the window itself (the owner,
+#           18.10.2026: "Желательно делать Setup отдельно от тех переключателей окон, которые являются для работы самого
+#           окна"); at the start the window asks to install what is missing.
+# service:  the checks of the button SERVICE in the header.
+# details:  what DETAILS of the work zone runs - ffprobe of the Source.
+# buttons:  operations a page runs with its own values: SAVE AS PROFILE takes the form of the preset open.
+#
+# An operation of the manifest that stands nowhere here fails a test (tests\test_cli_command.py), and so does one
+# that stands twice and a section without its texts.
+
+sections:
+  - id: precision
+    title: "PRECISION"
+    title_ru: "ТОЧНОСТЬ"
+    about: "Denoise, deband, grain"
+    about_ru: "Шумодав, дебанд, зерно"
+    icon: crosshair
+    groups:
+      - {id: denoise, title: "Denoise", title_ru: "Шумодав"}
+      - {id: deband, title: "Deband", title_ru: "Дебанд"}
+      - {id: master, title: "Master", title_ru: "Мастер"}
+    modes:
+      - {op: mild_denoise, group: denoise, short: "Mild", short_ru: "Мягкий"}
+      - {op: shadow_denoise_sota, group: denoise, short: "Shadows SOTA", short_ru: "Тени SOTA"}
+      - {op: chroma_cleanup, group: denoise, short: "Colour noise", short_ru: "Цветовой шум"}
+      - {op: deband_safe, group: deband, short: "No grain", short_ru: "Без зерна"}
+      - {op: deband_fine_grain, group: deband, short: "Fine grain", short_ru: "С зерном"}
+      - {op: filmic_rebuild, group: master, short: "Filmic rebuild", short_ru: "Плёночная пересборка"}
+      - {op: archive_clean, group: master, short: "Archive", short_ru: "Архив"}
+      - {op: pregrade_prep, group: master, short: "Pre-grade", short_ru: "К грейдингу"}
+
+  - id: film_looks
+    title: "FILM LOOKS"
+    title_ru: "ПЛЁНКА"
+    about: "The looks of film stocks"
+    about_ru: "Образы киноплёнок"
+    icon: film
+    groups:
+      - {id: stock, title: "Film stock", title_ru: "Плёнка"}
+      - {id: look, title: "Look", title_ru: "Образ"}
+    modes:
+      - {op: film_35mm, group: stock, short: "35 mm", short_ru: "35 мм"}
+      - {op: film_16mm, group: stock, short: "16 mm", short_ru: "16 мм"}
+      - {op: super8, group: stock, short: "Super 8", short_ru: "Super 8"}
+      - {op: imax_70mm, group: stock, short: "IMAX 70 mm", short_ru: "IMAX 70 мм"}
+      - {op: cinematic, group: look, short: "Cinematic", short_ru: "Кино"}
+      - {op: bleach_bypass, group: look, short: "Bleach bypass", short_ru: "Отбеливание"}
+      - {op: anamorphic_scope, group: look, short: "Anamorphic", short_ru: "Анаморфот"}
+
+  - id: retro
+    title: "RETRO"
+    title_ru: "РЕТРО"
+    about: "VHS, CRT, camcorder"
+    about_ru: "VHS, кинескоп, камкордер"
+    icon: tv
+    groups:
+      - {id: video, title: "Video", title_ru: "Видео"}
+      - {id: photo, title: "Photo", title_ru: "Фото"}
+    modes:
+      - {op: vhs_crt, group: video, short: "VHS and CRT", short_ru: "VHS и кинескоп"}
+      - {op: camcorder_90s, group: video, short: "Camcorder 90s", short_ru: "Камкордер 90-х"}
+      - {op: polaroid, group: photo, short: "Polaroid", short_ru: "Полароид"}
+
+  - id: restoration
+    title: "RESTORATION"
+    title_ru: "РЕСТАВРАЦИЯ"
+    about: "Deinterlace, telecine, artefacts"
+    about_ru: "Деинтерлейс, телесин, артефакты"
+    icon: wand-sparkles
+    groups:
+      - {id: interlace, title: "Interlace", title_ru: "Чересстрочность"}
+      - {id: noise, title: "Noise", title_ru: "Шум"}
+      - {id: artefacts, title: "Artefacts", title_ru: "Артефакты"}
+      - {id: scale, title: "Scale", title_ru: "Масштаб"}
+    modes:
+      - {op: qtgmc_deinterlace, group: interlace, short: "QTGMC", short_ru: "QTGMC"}
+      - {op: tivtc_ivtc, group: interlace, short: "Telecine TIVTC", short_ru: "Телесин TIVTC"}
+      - {op: mvtools_mcdegrain, group: noise, short: "MVTools", short_ru: "MVTools"}
+      - {op: dpir_denoise, group: noise, short: "DPIR", short_ru: "DPIR"}
+      - {op: deblock_h264_artefacts, group: artefacts, short: "H.264 blocks", short_ru: "Блоки H.264"}
+      - {op: derainbow_decross, group: artefacts, short: "Rainbow", short_ru: "Радуга"}
+      - {op: dehaze_local_contrast, group: artefacts, short: "Haze", short_ru: "Дымка"}
+      - {op: nnedi3_upscale_2x, group: scale, short: "NNEDI3 2x", short_ru: "NNEDI3 2x"}
+      - {op: vsmlrt_realesrgan_2x, group: scale, short: "Real-ESRGAN 2x", short_ru: "Real-ESRGAN 2x"}
+      - {op: soft_hd_rebuild_2x, group: scale, short: "Soft HD 2x", short_ru: "Мягкое HD 2x"}
+
+  - id: profiles
+    title: "PROFILES"
+    title_ru: "ПРОФИЛИ"
+    about: "Saved presets on a file or a folder"
+    about_ru: "Сохранённые пресеты на файл или папку"
+    icon: bookmark
+    modes:
+      - {op: profile_run}
+
+setup:
+  - install_vapoursynth
+  - install_vs_plugins
+  - install_ffmpeg
+  - install_mlrt
+  - remove_vapoursynth
+
+service:
+  - doctor
+  - source_list
+  - hardware_capabilities
+  - bench_presets
+  - bench_gpu
+
+details:
+  - probe_source
+
+buttons:
+  - {op: profile_save, icon: bookmark-plus, sections: [precision, film_looks, retro, restoration]}

@@ -10,8 +10,8 @@ for %%A in ("%SCRIPT_DIR%\..") do set "ROOT=%%~fA"
 set "PS1_FILE=%SCRIPT_DIR%\Bench-AllPresets.ps1"
 set "PS_EXE="
 
-rem Resolve PowerShell: portable -> system pwsh -> Windows PS
-if exist "%ROOT%\system_core\powershell\pwsh.exe" set "PS_EXE=%ROOT%\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+if exist "%ROOT%\App\AudionPs.exe" set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
@@ -69,7 +69,7 @@ if not defined AUDION_NO_PAUSE pause
 exit /b 0
 
 :ERR_NOPS
-echo [ERROR] No PowerShell found (portable, system pwsh, or powershell.exe).
+echo [ERROR] No PowerShell found (App\AudionPs.exe, system pwsh, or powershell.exe).
 if not defined AUDION_NO_PAUSE pause
 exit /b 1
 

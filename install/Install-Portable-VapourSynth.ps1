@@ -9,14 +9,15 @@
     - Downloads land in project's install\download\
     - Default Python is 3.12 (matches orchestrator embedded runtime)
     - Unattended by default
-    - Resolves "latest" VapourSynth via GitHub API /releases/latest
+    - Installs the newest stable VapourSynth unless a release is named
+    - pip keeps its cache in install\download\pip, not in the user profile
     - Does not pause; returns non-zero on failure for caller chaining
 
 .PARAMETER ProjectRoot
   Absolute path to project root (where system_core\ lives).
 
 .PARAMETER VSVersion
-  Optional VapourSynth release tag (e.g. "R74"). If empty -> latest stable.
+  Optional VapourSynth release tag (e.g. "R81"). If empty or "latest" -> the newest stable release.
 
 .PARAMETER PythonMinor
   Python 3.X minor. Default 12. The VS wheel uses cp312-abi3 (works on 3.12+).
@@ -45,6 +46,8 @@ $DLDir   = Join-Path $ProjectRoot 'install\download'
 $Marker  = Join-Path $VSDir 'portable.vs'
 
 if (-not (Test-Path $DLDir)) { New-Item -Path $DLDir -ItemType Directory -Force | Out-Null }
+$env:PIP_CACHE_DIR = Join-Path $DLDir 'pip'
+$env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
 
 Write-Host "======================================================================"
 Write-Host "  AUDION VS ENGINE - INSTALL PORTABLE VAPOURSYNTH"
@@ -117,7 +120,11 @@ function Get-VSWebReleaseTags {
 
 $VSAsset = $null
 
-if ([string]::IsNullOrWhiteSpace($VSVersion)) {
+# The newest release. The plugins of vs_plugins.json are API 4 builds, most of them PyPI wheels released with the
+# core (R80 dropped API 3 plugins), so they follow it; Install-VS-Plugins.ps1 keeps the core this step installed.
+if ([string]::IsNullOrWhiteSpace($VSVersion)) { $VSVersion = 'latest' }
+
+if ($VSVersion -eq 'latest') {
     Write-Host "[1/7] Resolving latest VapourSynth portable release from GitHub..."
     try {
         $releases = @(Invoke-RestMethod -Headers $Headers -Uri 'https://api.github.com/repos/vapoursynth/vapoursynth/releases?per_page=20' | ForEach-Object { $_ })
@@ -232,7 +239,7 @@ Write-Host "[5/7] Extracting Python embed..."
 $ProgressPreference = 'SilentlyContinue'
 Expand-7zArchive -Archive $PyZip -Destination $VSDir -ProjectRoot $ProjectRoot
 
-# Patch ._pth: enable shared preset helpers, site-packages and vs-scripts on import path
+# Patch ._pth: enable site-packages and vs-scripts on import path
 $pthPath = Join-Path $VSDir "python3$PythonMinor._pth"
 if (Test-Path $pthPath) {
     $existing = Get-Content $pthPath -Raw

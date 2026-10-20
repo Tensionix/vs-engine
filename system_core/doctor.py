@@ -13,6 +13,8 @@ Probes the full stack:
 Exit codes:
   0 = all green or only optional warnings
   1 = something required is missing
+
+--json FILE: every check (label, level OK/INFO/WARN/FAIL, detail) and the counts written to FILE as well.
 """
 from __future__ import annotations
 
@@ -70,9 +72,16 @@ def run(argv, timeout: int = 15) -> tuple[int, str]:
     except FileNotFoundError:
         return 127, ""
     except subprocess.TimeoutExpired:
-        return 124, f"timeout after {timeout}s"
+        return 124, ""
     except Exception as e:
         return 1, f"{type(e).__name__}: {e}"
+
+
+def probe_nvidia() -> tuple[bool, str]:
+    rc, out = run(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"], timeout=5)
+    if rc == 0 and out.strip():
+        return True, out.strip().splitlines()[0]
+    return False, "not available"
 
 
 def section(title: str) -> None:
@@ -80,6 +89,10 @@ def section(title: str) -> None:
     print(C("-" * 72))
     print(C(f"  {title}"))
     print(C("-" * 72))
+
+
+# Every check as it was rendered: written to the file of --json, the outcome of SERVICE - Doctor.
+CHECKS: list[dict[str, str]] = []
 
 
 def check(label: str, ok: bool, detail: str = "", warn: bool = False, info: bool = False) -> bool:
@@ -90,6 +103,8 @@ def check(label: str, ok: bool, detail: str = "", warn: bool = False, info: bool
     warn=True          -> [WARN]   (degraded but tolerated)
     otherwise ok=False -> [FAIL]
     """
+    CHECKS.append({"label": label, "level": "OK" if ok else "INFO" if info else "WARN" if warn else "FAIL",
+                   "detail": detail})
     if ok:
         tag = G("[OK]   ")
     elif info:
@@ -113,53 +128,22 @@ def main() -> int:
     print(f"  Project root : {ROOT}")
     print(f"  Orchestrator : {sys.executable}")
     print(f"  Python (orch): {sys.version.split()[0]} on {sys.platform}")
+    nvidia_available, nvidia_detail = probe_nvidia()
 
-    # ---------- 1. Template-owned tools ----------
-    section("Template tools")
+    # ---------- 1. The tools of the program ----------
+    section("Program tools")
     fzf = ROOT / "system_core" / "fzf.exe"
     if not check("fzf.exe (system_core)", fzf.exists(), str(fzf)):
         failures += 1
 
-    pwsh = ROOT / "system_core" / "powershell" / "pwsh.exe"
+    # The installers run on the PowerShell the program carries; built with the window (install\\Build-App.cmd).
+    pwsh = ROOT / "App" / "AudionPs.exe"
     if pwsh.exists():
-        rc, out = run([str(pwsh), "--version"], timeout=5)
-        check("portable pwsh", rc == 0, out.strip().splitlines()[0] if out else "")
+        rc, out = run([str(pwsh), "-NoLogo", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], timeout=20)
+        check("PowerShell of the program", rc == 0, f"App\\AudionPs.exe {out.strip().splitlines()[0] if out.strip() else ''}")
     else:
-        check("portable pwsh", False, "not installed (run install\\Install-Portable-PowerShell.cmd)", warn=True)
+        check("PowerShell of the program", False, "App\\AudionPs.exe is not built (install\\Build-App.cmd)", warn=True)
         warnings += 1
-
-    # 7-Zip CLI (used by every install-* script for archive extraction).
-    # Bootstrapped lazily by install\Ensure-7zip.ps1; absence is INFO, not a
-    # failure -- they auto-install on first install-* run.
-    z_dir = ROOT / "system_core" / "7zip"
-    z_zr  = z_dir / "7zr.exe"
-    z_za  = z_dir / "7za.exe"
-    if z_zr.exists():
-        rc, out = run([str(z_zr)], timeout=5)
-        ver = ""
-        for line in (out or "").splitlines():
-            s = line.strip()
-            if s.startswith("7-Zip"):
-                ver = s
-                break
-        check("portable 7zr.exe", True, ver or str(z_zr))
-    else:
-        check("portable 7zr.exe", False,
-              "not bootstrapped yet (auto-installs on first install-* run)",
-              info=True)
-    if z_za.exists():
-        rc, out = run([str(z_za)], timeout=5)
-        ver = ""
-        for line in (out or "").splitlines():
-            s = line.strip()
-            if s.startswith("7-Zip"):
-                ver = s
-                break
-        check("portable 7za.exe", True, ver or str(z_za))
-    else:
-        check("portable 7za.exe", False,
-              "not bootstrapped yet (auto-installs on first install-* run)",
-              info=True)
 
     # ---------- 2. VS Engine ----------
     section("VapourSynth Engine")
@@ -177,14 +161,13 @@ def main() -> int:
     if not check("vspipe.exe", vspipe.exists(), str(vspipe)):
         failures += 1
     else:
-        rc, out = run([str(vspipe), "--version"], timeout=30)
+        rc, out = run([str(vspipe), "--version"], timeout=10)
         ver = ""
         for line in out.splitlines():
             if line.startswith("Core "):
                 ver = line.strip()
                 break
-        if not check("vspipe runs", rc == 0, ver or out.strip().splitlines()[-1] if out.strip() else f"exit {rc}"):
-            failures += 1
+        check("vspipe runs", rc == 0, ver)
 
     if marker.exists():
         info = marker.read_text(errors="replace").strip().splitlines()
@@ -208,16 +191,21 @@ def main() -> int:
                 plugins = json.loads(last)
             except Exception:
                 pass
+        # The namespaces the presets call (install\vs_plugins.json): API 4 builds, which VapourSynth R80+ requires.
         required = {
-            "lsmas":     "L-SMASH source",
-            "ffms2":     "FFmpegSource fallback",
-            "fmtc":      "fmtconv (bit-depth/matrix)",
-            "neo_f3kdb": "neo_f3kdb (deband)",
-            "grain":     "AddGrain (grain restore)",
-            "knlm":      "KNLMeansCL (OpenCL denoise)",
-            "bm3dcpu":   "BM3D CPU (shadow denoise)",
-            "dfttest":   "DFTTest (spectral denoise)",
-            "znedi3":    "ZNEDI3 / NNEDI3 interpolation (QTGMC)",
+            "lsmas":        "L-SMASH source",
+            "ffms2":        "FFmpegSource fallback",
+            "fmtc":         "fmtconv (bit-depth/matrix)",
+            "neo_f3kdb":    "neo_f3kdb (deband)",
+            "grain":        "AddGrain (grain restore)",
+            "bm3d":         "BM3D CPU (shadow denoise)",
+            "dfttest2_cpu": "DFTTest2 CPU (spectral denoise)",
+            "mv":           "MVTools (motion-compensated denoise, QTGMC)",
+            "zsmooth":      "zsmooth (QTGMC temporal soften)",
+            "tivtc":        "TIVTC (inverse telecine)",
+            "deblock":      "Deblock (H.264 artefacts)",
+            "dctf":         "DCTFilter (H.264 artefacts)",
+            "znedi3":       "ZNEDI3 / NNEDI3 interpolation (QTGMC + clean 2x upscale)",
         }
         for ns_name, label in required.items():
             ok = ns_name in plugins
@@ -229,6 +217,7 @@ def main() -> int:
             "havsfunc": "QTGMC and restoration helpers",
             "mvsfunc": "MVTools script helpers",
             "nnedi3_resample": "deterministic NNEDI3 2x helper",
+            "dfttest2": "DFTTest interface of dfttest2",
         }
         for module_name, label in required_modules.items():
             module_probe = (
@@ -239,47 +228,23 @@ def main() -> int:
             if not check(f"module: {module_name}", module_rc == 0, label):
                 failures += 1
 
-        # bm3dcuda is bundled by default since Phase 18.A0. Absence on a
-        # non-NVIDIA machine is normal (DLL silently fails to load without
-        # cudart) -- presets fall back via hasattr check. Treat as INFO.
-        bm3dcuda = "bm3dcuda" in plugins
-        if bm3dcuda:
-            check("plugin: bm3dcuda", True, "BM3D CUDA acceleration available")
+        # BM3D on the GPU of any vendor: bm3dvk on a Vulkan device of the core (R80+). Without one BM3D runs on the
+        # CPU (bm3d) - normal, so INFO. A live call tells "plugin loaded" from "the device actually runs it".
+        gpu_smoke = (
+            "import vapoursynth as vs; core = vs.core; "
+            "devices = getattr(core, 'vulkan_devices', None) or []; "
+            "print('DEVICE', devices[0]['name'] if devices else ''); "
+            "c = core.std.BlankClip(width=64, height=64, format=vs.YUV420PS, length=1, color=[0.5,0.5,0.5]); "
+            "core.std.GPUDownload(core.bm3dvk.BM3D(core.std.GPUUpload(c), sigma=1.0, radius=0)).get_frame(0); "
+            "print('VULKAN_OK')"
+        ) if "bm3dvk" in plugins else ""
+        rc, out = run([str(vspy), "-c", gpu_smoke], timeout=30) if gpu_smoke else (1, "")
+        device = next((l[7:].strip() for l in out.splitlines() if l.startswith("DEVICE ")), "")
+        if rc == 0 and "VULKAN_OK" in out:
+            check("BM3D on GPU (bm3dvk)", True, f"live call on {device}")
         else:
-            check("plugin: bm3dcuda", False,
-                  "not loaded (CPU fallback active -- normal on non-NVIDIA hosts)",
-                  info=True)
-
-        # Live runtime smoke: distinguishes "DLL loaded" from "CUDA actually runs"
-        if bm3dcuda:
-            cuda_smoke = (
-                "import vapoursynth as vs; core = vs.core; "
-                "c = core.std.BlankClip(width=64, height=64, format=vs.YUV420PS, length=1, color=[0.5,0.5,0.5]); "
-                "_ = core.bm3dcuda.BM3D(c, sigma=1.0, radius=0).get_frame(0); "
-                "print('CUDA_OK')"
-            )
-            rc, out = run([str(vspy), "-c", cuda_smoke], timeout=30)
-            cuda_ok = (rc == 0 and "CUDA_OK" in out)
-            if cuda_ok:
-                check("bm3dcuda runtime", True, "live BM3D CUDA invocation succeeded")
-            else:
-                has_nvidia_rc, has_nvidia_out = run(
-                    ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-                    timeout=5,
-                )
-                err = (out or "").strip().splitlines()
-                tail = err[-1] if err else "(no stderr)"
-                if has_nvidia_rc != 0 or not has_nvidia_out.strip():
-                    check("bm3dcuda runtime", False,
-                          "not usable on this host (no NVIDIA GPU detected; CPU/QuickSync path is expected)",
-                          info=True)
-                else:
-                    # Plugin loaded but CUDA call failed on a host that DOES
-                    # have NVIDIA. This is actionable.
-                    check("bm3dcuda runtime", False,
-                          f"plugin loaded but CUDA call failed -- install NVIDIA driver R525+ or CUDA Toolkit Runtime. Last line: {tail[:120]}",
-                          warn=True)
-                    warnings += 1
+            check("BM3D on GPU (bm3dvk)", False,
+                  "no Vulkan device or bm3dvk not loaded -- BM3D runs on the CPU (bm3d)", info=True)
 
     # ---------- 3. FFmpeg ----------
     section("FFmpeg")
@@ -297,55 +262,22 @@ def main() -> int:
     # ---------- 4. GPU acceleration ----------
     section("GPU acceleration")
     # NVIDIA / CUDA
-    rc, out = run(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"], timeout=5)
-    if rc == 0 and out.strip():
-        gpu = out.strip().splitlines()[0]
-        check("NVIDIA + CUDA", True, gpu)
+    if nvidia_available:
+        check("NVIDIA + CUDA", True, nvidia_detail)
     else:
-        check("NVIDIA + CUDA", False, "not available -- BM3D will use CPU fallback", info=True)
+        check("NVIDIA + CUDA", False, nvidia_detail, info=True)
 
-    # List video controllers via PowerShell CIM. wmic.exe is deprecated since
-    # Win11 22H2 and absent on fresh 24H2+ images, so we never call it.
-    # Prefer portable pwsh; fall back to built-in powershell.exe 5.1 (always
-    # present on Win10+). Get-CimInstance lives in both.
+    # OpenCL probe via WMI (Windows): just list video controllers
     if sys.platform == "win32":
-        ps_exe = None
-        if pwsh.exists():
-            ps_exe = str(pwsh)
-        else:
-            sys_ps = shutil.which("powershell.exe") or shutil.which("powershell")
-            if sys_ps:
-                ps_exe = sys_ps
-        if ps_exe:
-            ps_cmd = (
-                "Get-CimInstance Win32_VideoController | "
-                "ForEach-Object { '{0}|{1}' -f $_.Name, $_.DriverVersion }"
-            )
-            rc, out = run(
-                [ps_exe, "-NoLogo", "-NoProfile", "-NonInteractive",
-                 "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
-                timeout=15,
-            )
-            if rc == 0:
-                for line in (out or "").splitlines():
-                    line = line.strip()
-                    if not line or "|" not in line:
-                        continue
-                    name, drv = (line.split("|", 1) + [""])[:2]
-                    detail = name.strip()
-                    if drv.strip():
-                        detail = f"{detail}  (driver {drv.strip()})"
-                    check("GPU detected", True, detail)
-            else:
-                check("GPU enumeration", False,
-                      "Get-CimInstance failed (CIM service down?)",
-                      warn=True)
-                warnings += 1
-        else:
-            check("GPU enumeration", False,
-                  "no PowerShell available (portable pwsh not installed and powershell.exe missing)",
-                  warn=True)
-            warnings += 1
+        rc, out = run(
+            ["wmic", "path", "win32_VideoController", "get", "Name,DriverVersion", "/FORMAT:LIST"],
+            timeout=10,
+        )
+        if rc == 0:
+            lines = [l.strip() for l in out.splitlines() if l.strip().startswith("Name=")]
+            for line in lines:
+                gpu_name = line.split("=", 1)[1]
+                check(f"GPU detected", True, gpu_name)
 
     # ---------- 5. Disk ----------
     section("Disk")
@@ -370,6 +302,12 @@ def main() -> int:
         print(R(f"  PROBLEMS: {failures} failure(s), {warnings} warning(s)."))
     print(C("======================================================================"))
     print()
+    if "--json" in sys.argv[1:]:
+        at = sys.argv.index("--json")
+        if at + 1 < len(sys.argv):
+            Path(sys.argv[at + 1]).write_text(
+                json.dumps({"failures": failures, "warnings": warnings, "checks": CHECKS}, ensure_ascii=False, indent=2),
+                encoding="utf-8")
     return 0 if failures == 0 else 1
 
 

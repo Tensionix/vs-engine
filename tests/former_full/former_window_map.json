@@ -1,0 +1,1302 @@
+{
+ "where": {
+  "labels": "system_core\\ui_nicegui\\app.py (dictionaries of the window)",
+  "presets": "system_core\\engine\\presets.py (summary, doc - English only)"
+ },
+ "texts": {
+  "PARAM_LABELS": {
+   "strength": "Сила",
+   "sigma": "BM3D sigma",
+   "use_cuda": "CUDA",
+   "grain_back": "Возврат зерна",
+   "shadow_threshold": "Порог теней",
+   "transition": "Переход маски",
+   "preview_mask": "Показать маску",
+   "range": "Deband range",
+   "y": "Y threshold",
+   "cb": "Cb threshold",
+   "cr": "Cr threshold",
+   "grain_var": "Дисперсия зерна",
+   "deband_range": "Deband range",
+   "grain_shadow": "Зерно в тенях",
+   "grain_mid": "Зерно в средних",
+   "grain_high": "Зерно в светах",
+   "high_threshold": "Порог светов",
+   "denoise": "Шумодав",
+   "intensity": "Интенсивность",
+   "stock": "Пленка",
+   "gate_weave": "Gate weave",
+   "vignette": "Виньетка",
+   "flare_len": "Длина блика",
+   "flare_thr": "Порог блика",
+   "teal_shadow": "Teal shadows",
+   "model": "ML model",
+   "tile": "Tile",
+   "tile_pad": "Tile pad",
+   "backend": "ML backend",
+   "fps_mul": "FPS x",
+   "rebuild": "Rebuild",
+   "cleanup": "Cleanup",
+   "field_order": "Порядок полей",
+   "preset": "QTGMC preset",
+   "output_fps": "FPS output",
+   "radius": "Радиус",
+   "thsad": "THSAD",
+   "blksize": "Block size",
+   "pp": "TFM pp",
+   "cycle": "Cycle",
+   "rdrop": "Drop/cycle",
+   "quant1": "Quant 1",
+   "quant2": "Quant 2",
+   "aoffset": "Alpha offset",
+   "boffset": "Beta offset"
+  },
+  "CHOICE_LABELS": {
+   "light": "light",
+   "medium": "medium",
+   "strong": "strong",
+   "single": "single",
+   "double": "double",
+   "tff": "TFF",
+   "bff": "BFF",
+   "auto": "Auto",
+   "trt": "TensorRT",
+   "ort_dml": "DirectML",
+   "ort_cpu": "CPU",
+   "conservative": "conservative",
+   "balanced": "balanced",
+   "aggressive": "aggressive",
+   "0": "выкл",
+   "1": "вкл"
+  },
+  "PRESET_TOKEN_LABELS": {
+   "h264": "H.264",
+   "mpeg": "MPEG",
+   "bm3d": "BM3D",
+   "dfttest": "DFTTest",
+   "f3kdb": "f3kdb",
+   "neo": "neo",
+   "mvtools": "MVTools",
+   "mcdegrain": "MCDegrain",
+   "qtgmc": "QTGMC",
+   "nnedi3": "NNEDI3",
+   "tivtc": "TIVTC",
+   "ivtc": "IVTC",
+   "ntsc": "NTSC",
+   "vhs": "VHS",
+   "crt": "CRT",
+   "super8": "Super 8",
+   "35mm": "35mm",
+   "16mm": "16mm",
+   "90s": "90s",
+   "sota": "SOTA",
+   "hd": "HD",
+   "2x": "2X"
+  },
+  "PALETTE_LABELS": {
+   "precision": "Precision",
+   "film_looks": "Film Looks",
+   "retro": "Retro",
+   "restoration": "Restoration"
+  },
+  "MODE_LABELS": {
+   "preset": "Пресет",
+   "profile": "Profile",
+   "batch": "Batch",
+   "service": "Service"
+  },
+  "MODULE_META": {
+   "profile": {
+    "title": "Profile",
+    "icon": "account_tree",
+    "summary": "Saved profile + encoder override"
+   },
+   "batch": {
+    "title": "Batch",
+    "icon": "queue_play_next",
+    "summary": "Folder processing"
+   },
+   "service": {
+    "title": "Service",
+    "icon": "construction",
+    "summary": "Doctor / lists / probe"
+   }
+  },
+  "ENCODER_FAMILY_LABELS": {
+   "x264": "x.264",
+   "x265": "x.265",
+   "prores": "ProRes",
+   "dnxhr": "DNxHR"
+  },
+  "ENCODER_BACKEND_LABELS": {
+   "cpu": "CPU",
+   "nvenc": "NVIDIA",
+   "qsv": "Intel QuickSync",
+   "amf": "AMF"
+  },
+  "DECODE_BACKEND_LABELS": {
+   "cpu": "CPU",
+   "cuda": "NVIDIA",
+   "qsv": "Intel QuickSync",
+   "d3d11va": "AMF"
+  },
+  "VS_ACCEL_LABELS": {
+   "cpu": "CPU",
+   "cuda": "CUDA"
+  },
+  "PRORES_PROFILE_LABELS": {
+   "lt": "LT",
+   "422": "422",
+   "hq": "HQ"
+  },
+  "PRORES_CONTAINER_LABELS": {
+   "mxf": "MXF",
+   "mov": "MOV"
+  },
+  "DNXHR_PROFILE_LABELS": {
+   "hq": "HQ",
+   "hqx": "HQX",
+   "lb": "LB",
+   "sq": "SQ"
+  },
+  "TEXT": {
+   "ru": {
+    "cancel": "Отменить",
+    "back": "Назад",
+    "run_preset": "Запустить пресет",
+    "apply_profile": "Apply profile",
+    "run_batch": "Run batch",
+    "encoding": "Кодирование",
+    "terminal": "Терминал",
+    "clear_terminal_window": "Очистить окно терминала",
+    "expand_terminal": "Развернуть терминал",
+    "close": "Закрыть",
+    "status": "STATUS",
+    "file_list": "File List",
+    "source_folder": "Источник",
+    "target_folder": "Назначение",
+    "source_selected": "Источник выбран.",
+    "target_selected": "Назначение выбрано.",
+    "add_file_short": "Добавить файл...",
+    "clear_io_short": "Сбросить",
+    "delete_io_short": "Удалить",
+    "file_list_button": "Список",
+    "path_required": "Выберите путь.",
+    "path_pinned": "Путь закреплен.",
+    "path_unpinned": "Закрепление снято.",
+    "picker_cancelled": "Выбор отменён.",
+    "operation_done": "Готово.",
+    "source_folder_missing": "Источник не найден: {path}",
+    "add_files_short": "ФАЙЛЫ",
+    "add_folder_short": "ПАПКА",
+    "reset_paths": "СБРОС",
+    "file_list_empty": "SOURCE has no files.",
+    "file_list_missing": "SOURCE was not found: {path}",
+    "file_list_ready": "File list generated: {count}.",
+    "terminal_file": "File",
+    "logs": "LOGS",
+    "out": "OUT",
+    "report": "REPORT",
+    "source": "SOURCE",
+    "output": "OUT",
+    "input_file": "ВХОДНОЙ ФАЙЛ",
+    "output_override": "Имя выходного файла",
+    "auto_output": "АВТО ВЫХОД",
+    "auto_output_tooltip": "Сбросить ручное имя и использовать автоматическое имя выходного файла",
+    "environment": "Установка VapourSynth",
+    "vs": "VapourSynth",
+    "codecs_profiles": "Environment and profiles",
+    "input_files": "Входные файлы",
+    "presets": "Пресеты",
+    "preset_params": "Параметры пресета",
+    "profile": "Profile",
+    "batch": "Batch",
+    "service": "Service",
+    "profiles": "Profiles",
+    "folder_processing": "Folder processing",
+    "doctor_lists_probe": "Doctor / lists / probe",
+    "theme": "Тема",
+    "language_switch": "EN",
+    "theme_saved": "Тема сохранена.",
+    "language_saved": "Язык сохранен.",
+    "idle": "Ожидание",
+    "running": "Выполняется",
+    "done": "Готово",
+    "error": "Ошибка",
+    "another_running": "Другая операция уже выполняется.",
+    "install_vs": "VAPOURSYNTH",
+    "install_vs_plugins": "VS PLUGINS",
+    "install_ffmpeg": "FFMPEG",
+    "install_mlrt_lean": "MLRT LEAN",
+    "install_mlrt_full": "MLRT FULL",
+    "install_vs_tooltip": "Установить/обновить portable VapourSynth host",
+    "install_vs_plugins_tooltip": "Установить/обновить VapourSynth plugins через vsrepo",
+    "install_ffmpeg_tooltip": "Установить/обновить portable FFmpeg (GPL payload)",
+    "install_mlrt_lean_tooltip": "Установить/обновить MLRT, затем trim под локальный GPU",
+    "install_mlrt_full_tooltip": "Установить/обновить полный MLRT bundle без trim"
+   },
+   "en": {
+    "cancel": "Cancel",
+    "back": "Back",
+    "run_preset": "Run preset",
+    "apply_profile": "Apply profile",
+    "run_batch": "Run batch",
+    "encoding": "Encoding",
+    "terminal": "Terminal",
+    "clear_terminal_window": "Clear terminal window",
+    "expand_terminal": "Expand terminal",
+    "close": "Close",
+    "status": "STATUS",
+    "file_list": "File List",
+    "source_folder": "Source",
+    "target_folder": "Target",
+    "source_selected": "Source selected.",
+    "target_selected": "Target selected.",
+    "add_file_short": "Add file...",
+    "clear_io_short": "Reset",
+    "delete_io_short": "Delete",
+    "file_list_button": "List",
+    "path_required": "Choose a path.",
+    "path_pinned": "Path pinned.",
+    "path_unpinned": "Path unpinned.",
+    "picker_cancelled": "Selection cancelled.",
+    "operation_done": "Done.",
+    "source_folder_missing": "Source was not found: {path}",
+    "add_files_short": "FILES",
+    "add_folder_short": "FOLDER",
+    "reset_paths": "RESET",
+    "file_list_empty": "SOURCE has no files.",
+    "file_list_missing": "SOURCE was not found: {path}",
+    "file_list_ready": "File list generated: {count}.",
+    "terminal_file": "File",
+    "logs": "LOGS",
+    "out": "OUT",
+    "report": "REPORT",
+    "source": "SOURCE",
+    "output": "OUT",
+    "input_file": "INPUT FILE",
+    "output_override": "Output file name",
+    "auto_output": "AUTO OUTPUT",
+    "auto_output_tooltip": "Clear the manual name and use the automatic output filename",
+    "environment": "VapourSynth install",
+    "vs": "VapourSynth",
+    "codecs_profiles": "Environment and profiles",
+    "input_files": "Input files",
+    "presets": "Presets",
+    "preset_params": "Preset parameters",
+    "profile": "Profile",
+    "batch": "Batch",
+    "service": "Service",
+    "profiles": "Profiles",
+    "folder_processing": "Folder processing",
+    "doctor_lists_probe": "Doctor / lists / probe",
+    "theme": "Theme",
+    "language_switch": "RU",
+    "theme_saved": "Theme saved.",
+    "language_saved": "Language saved.",
+    "idle": "Idle",
+    "running": "Running",
+    "done": "Done",
+    "error": "Error",
+    "another_running": "Another operation is already running.",
+    "install_vs": "VAPOURSYNTH",
+    "install_vs_plugins": "VS PLUGINS",
+    "install_ffmpeg": "FFMPEG",
+    "install_mlrt_lean": "MLRT LEAN",
+    "install_mlrt_full": "MLRT FULL",
+    "install_vs_tooltip": "Install/update the portable VapourSynth host",
+    "install_vs_plugins_tooltip": "Install/update VapourSynth plugins via vsrepo",
+    "install_ffmpeg_tooltip": "Install/update portable FFmpeg (GPL payload)",
+    "install_mlrt_lean_tooltip": "Install/update MLRT, then trim to the local GPU",
+    "install_mlrt_full_tooltip": "Install/update the full MLRT bundle without trim"
+   }
+  }
+ },
+ "presets": [
+  {
+   "palette": "film_looks",
+   "name": "anamorphic_scope",
+   "friendly": "Anamorphic Scope",
+   "summary": "Hollywood cinemascope look -- horizontal blue lens flares only on highlights + teal-cool shadows (Abrams / Nolan aesthetic)",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    },
+    "flare_len": {
+     "type": "int",
+     "default": 96,
+     "range": [
+      32,
+      256
+     ],
+     "doc": "anamorphic streak length in pixels; longer = more dramatic"
+    },
+    "flare_thr": {
+     "type": "float",
+     "default": 0.78,
+     "range": [
+      0.0,
+      1.0
+     ],
+     "doc": "highlight threshold for flare cut-in; lower = more pixels flare"
+    },
+    "teal_shadow": {
+     "type": "float",
+     "default": 0.35,
+     "range": [
+      0.0,
+      1.0
+     ],
+     "doc": "teal-cool tint strength in shadows (J.J.Abrams / Nolan)"
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "bleach_bypass",
+   "friendly": "Bleach Bypass",
+   "summary": "High contrast, desaturated, harsh -- 'Se7en' / 'Saving Private Ryan'",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "cinematic",
+   "friendly": "Cinematic",
+   "summary": "Universal subtle filmic look -- safe default",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ],
+     "doc": "master scale: 0=off, 1=tuned, 2=heavy"
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "film_16mm",
+   "friendly": "Film 16mm",
+   "summary": "16mm vibe -- heavier softness, visible grain, lifted blacks",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "film_35mm",
+   "friendly": "Film 35mm",
+   "summary": "Kodak 35mm emulation with stock variants (250D / 500T / 50D)",
+   "params": {
+    "stock": {
+     "type": "choice",
+     "choices": [
+      "250D",
+      "500T",
+      "50D"
+     ],
+     "default": "250D",
+     "doc": "250D=daylight neutral; 500T=tungsten cooler; 50D=cleanest"
+    },
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "imax_70mm",
+   "friendly": "Imax 70mm",
+   "summary": "Large-format 65/70mm IMAX feel -- minimal grain, gentle highlight halation, subtle 1px gate weave",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    },
+    "gate_weave": {
+     "type": "choice",
+     "choices": [
+      "0",
+      "1"
+     ],
+     "default": "1",
+     "doc": "1 = subtle 1px random per-frame offset; 0 = perfectly stable"
+    }
+   }
+  },
+  {
+   "palette": "film_looks",
+   "name": "super8",
+   "friendly": "Super 8",
+   "summary": "Super 8 -- heaviest grain, softest optics, faded 70s contrast",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "archive_clean",
+   "friendly": "Archive Clean",
+   "summary": "DFTTest mild + neo_f3kdb light, NO grain (neutral master)",
+   "params": {
+    "denoise": {
+     "type": "choice",
+     "choices": [
+      "light",
+      "medium",
+      "strong"
+     ],
+     "default": "light",
+     "doc": "DFTTest sigma: light=4, medium=8, strong=14"
+    },
+    "range": {
+     "type": "int",
+     "default": 10,
+     "range": [
+      8,
+      32
+     ],
+     "doc": "neo_f3kdb range"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "chroma_cleanup",
+   "friendly": "Chroma Cleanup",
+   "summary": "DFTTest on chroma planes only -- kills chroma noise, leaves luma intact",
+   "params": {
+    "strength": {
+     "type": "choice",
+     "choices": [
+      "light",
+      "medium",
+      "strong"
+     ],
+     "default": "medium",
+     "doc": "chroma sigma: light=6, medium=12, strong=20"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "deband_fine_grain",
+   "friendly": "Deband Fine Grain",
+   "summary": "neo_f3kdb (medium) + AddGrain micro-texture restore",
+   "params": {
+    "range": {
+     "type": "int",
+     "default": 14,
+     "range": [
+      8,
+      32
+     ],
+     "doc": "neo_f3kdb range"
+    },
+    "y": {
+     "type": "int",
+     "default": 48,
+     "range": [
+      0,
+      128
+     ]
+    },
+    "cb": {
+     "type": "int",
+     "default": 32,
+     "range": [
+      0,
+      128
+     ]
+    },
+    "cr": {
+     "type": "int",
+     "default": 32,
+     "range": [
+      0,
+      128
+     ]
+    },
+    "grain_var": {
+     "type": "float",
+     "default": 0.6,
+     "range": [
+      0.0,
+      2.0
+     ],
+     "doc": "AddGrain luma variance (chroma is var*0.27)"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "deband_safe",
+   "friendly": "Deband Safe",
+   "summary": "neo_f3kdb light deband, no grain",
+   "params": {
+    "range": {
+     "type": "int",
+     "default": 12,
+     "range": [
+      8,
+      32
+     ],
+     "doc": "neo_f3kdb evaluation range"
+    },
+    "y": {
+     "type": "int",
+     "default": 48,
+     "range": [
+      0,
+      128
+     ],
+     "doc": "luma threshold"
+    },
+    "cb": {
+     "type": "int",
+     "default": 32,
+     "range": [
+      0,
+      128
+     ],
+     "doc": "Cb threshold"
+    },
+    "cr": {
+     "type": "int",
+     "default": 32,
+     "range": [
+      0,
+      128
+     ],
+     "doc": "Cr threshold"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "filmic_rebuild",
+   "friendly": "Filmic Rebuild",
+   "summary": "BM3D denoise -> neo_f3kdb deband -> luma-zoned grain (flagship)",
+   "params": {
+    "sigma": {
+     "type": "float",
+     "default": 2.0,
+     "range": [
+      1.0,
+      3.5
+     ],
+     "doc": "BM3D luma sigma"
+    },
+    "use_cuda": {
+     "type": "choice",
+     "choices": [
+      "0",
+      "1"
+     ],
+     "default": "0"
+    },
+    "deband_range": {
+     "type": "int",
+     "default": 14,
+     "range": [
+      8,
+      32
+     ]
+    },
+    "grain_shadow": {
+     "type": "float",
+     "default": 1.5,
+     "range": [
+      0.0,
+      3.0
+     ],
+     "doc": "grain variance in shadow zone (heaviest)"
+    },
+    "grain_mid": {
+     "type": "float",
+     "default": 0.9,
+     "range": [
+      0.0,
+      3.0
+     ]
+    },
+    "grain_high": {
+     "type": "float",
+     "default": 0.4,
+     "range": [
+      0.0,
+      3.0
+     ]
+    },
+    "shadow_threshold": {
+     "type": "float",
+     "default": 0.3,
+     "range": [
+      0.0,
+      0.5
+     ],
+     "doc": "where shadow zone ends (0..1)"
+    },
+    "high_threshold": {
+     "type": "float",
+     "default": 0.65,
+     "range": [
+      0.5,
+      1.0
+     ],
+     "doc": "where highlight zone begins (0..1)"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "mild_denoise",
+   "friendly": "Mild Denoise",
+   "summary": "DFTTest spectral denoise (CPU, hardware-agnostic)",
+   "params": {
+    "strength": {
+     "type": "choice",
+     "choices": [
+      "light",
+      "medium",
+      "strong"
+     ],
+     "default": "medium",
+     "doc": "DFTTest sigma: light=4.0, medium=8.0, strong=14.0"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "pregrade_prep",
+   "friendly": "Pregrade Prep",
+   "summary": "Very light DFTTest, no deband -- minimum-touch prep for Resolve grading",
+   "params": {
+    "strength": {
+     "type": "choice",
+     "choices": [
+      "light",
+      "medium"
+     ],
+     "default": "light",
+     "doc": "DFTTest sigma: light=3.0, medium=6.0"
+    }
+   }
+  },
+  {
+   "palette": "precision",
+   "name": "shadow_denoise_sota",
+   "friendly": "Shadow Denoise SOTA",
+   "summary": "BM3D float SOTA denoise + shadow-only luma mask (CUDA pref, CPU fallback)",
+   "params": {
+    "sigma": {
+     "type": "float",
+     "default": 2.5,
+     "range": [
+      1.0,
+      4.0
+     ],
+     "doc": "BM3D luma sigma; chroma is sigma*0.6"
+    },
+    "use_cuda": {
+     "type": "choice",
+     "choices": [
+      "0",
+      "1"
+     ],
+     "default": "0",
+     "doc": "1 = use bm3dcuda if loaded; 0 = always CPU fallback"
+    },
+    "grain_back": {
+     "type": "float",
+     "default": 0.6,
+     "range": [
+      0.0,
+      2.0
+     ],
+     "doc": "micro-grain restoration so denoised shadows are not plastic (0 = off)"
+    },
+    "shadow_threshold": {
+     "type": "float",
+     "default": 0.2,
+     "range": [
+      0.0,
+      0.5
+     ],
+     "doc": "luma cut where shadow zone ends (float, 0..1)"
+    },
+    "transition": {
+     "type": "float",
+     "default": 0.1,
+     "range": [
+      0.01,
+      0.4
+     ],
+     "doc": "smooth transition width above the threshold"
+    },
+    "preview_mask": {
+     "type": "choice",
+     "choices": [
+      "0",
+      "1"
+     ],
+     "default": "0",
+     "doc": "1 = output the shadow mask itself (debug / tuning)"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "deblock_h264_artefacts",
+   "friendly": "Deblock H.264 Artefacts",
+   "summary": "havsfunc.Deblock_QED -- edge-aware deblocker for over-compressed H.264 / MPEG sources (YouTube rips, WhatsApp re-encodes, low-bitrate broadcast)",
+   "params": {
+    "quant1": {
+     "type": "int",
+     "default": 24,
+     "range": [
+      16,
+      32
+     ],
+     "doc": "base quant strength on block edges; higher = stronger"
+    },
+    "quant2": {
+     "type": "int",
+     "default": 26,
+     "range": [
+      16,
+      32
+     ],
+     "doc": "secondary quant for inner block area"
+    },
+    "aoffset": {
+     "type": "int",
+     "default": 1,
+     "range": [
+      0,
+      2
+     ],
+     "doc": "alpha offset (edge sensitivity)"
+    },
+    "boffset": {
+     "type": "int",
+     "default": 1,
+     "range": [
+      0,
+      2
+     ],
+     "doc": "beta offset (intra sensitivity)"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "dehaze_local_contrast",
+   "friendly": "Dehaze Local Contrast",
+   "summary": "Luma-only local contrast / clarity / haze removal with zone-weighted falloff (no color shift, no halos)",
+   "params": {
+    "strength": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ],
+     "doc": "overall amount of local contrast added back; 0 = passthrough"
+    },
+    "radius": {
+     "type": "int",
+     "default": 8,
+     "range": [
+      1,
+      16
+     ],
+     "doc": "low-pass kernel size in pixels; bigger = haze, smaller = clarity"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "derainbow_decross",
+   "friendly": "Derainbow Decross",
+   "summary": "MVTools motion-compensated chroma-only smoothing -- removes NTSC composite rainbow / dot-crawl / cross-color (no luma softening)",
+   "params": {
+    "strength": {
+     "type": "float",
+     "default": 0.6,
+     "range": [
+      0.0,
+      1.0
+     ],
+     "doc": "chroma smoothing intensity; 0 = passthrough, 1 = full"
+    },
+    "blksize": {
+     "type": "choice",
+     "choices": [
+      "8",
+      "16"
+     ],
+     "default": "16",
+     "doc": "motion search block size; 16 for SD/HD, 8 for finer detail"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "dpir_denoise",
+   "friendly": "Dpir Denoise",
+   "summary": "DPIR ML-denoise (vs-mlrt) -- heavy noise / high-ISO source while preserving texture; better than BM3D on really dirty footage",
+   "params": {
+    "strength": {
+     "type": "float",
+     "default": 10.0,
+     "range": [
+      1.0,
+      50.0
+     ],
+     "doc": "noise level estimate sigma; 10 medium / 15 heavy / 25 very heavy"
+    },
+    "model": {
+     "type": "choice",
+     "choices": [
+      "drunet_color",
+      "drunet_gray",
+      "drunet_deblocking_color",
+      "drunet_deblocking_gray"
+     ],
+     "default": "drunet_color",
+     "doc": "drunet_color for color video; deblocking_color for JPEG/MPEG block artifacts"
+    },
+    "tile": {
+     "type": "int",
+     "default": 384,
+     "range": [
+      256,
+      512
+     ],
+     "doc": "input tile size"
+    },
+    "backend": {
+     "type": "choice",
+     "choices": [
+      "auto",
+      "trt",
+      "ort_dml",
+      "ort_cpu"
+     ],
+     "default": "auto"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "mvtools_mcdegrain",
+   "friendly": "MVTools MCDegrain",
+   "summary": "Motion-compensated temporal denoise (MVTools+MDegrain); kills noise without softening detail",
+   "params": {
+    "radius": {
+     "type": "int",
+     "default": 2,
+     "range": [
+      1,
+      3
+     ],
+     "doc": "temporal radius (frames before/after considered)"
+    },
+    "thsad": {
+     "type": "int",
+     "default": 200,
+     "range": [
+      100,
+      400
+     ],
+     "doc": "block-match SAD threshold; higher = more aggressive averaging"
+    },
+    "blksize": {
+     "type": "choice",
+     "choices": [
+      "8",
+      "16"
+     ],
+     "default": "16",
+     "doc": "motion search block size; 16 for HD, 8 for 4K detail"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "qtgmc_deinterlace",
+   "friendly": "QTGMC Deinterlace",
+   "summary": "QTGMC reference-quality deinterlace (NNEDI3 + MVTools); for legacy interlaced sources",
+   "params": {
+    "field_order": {
+     "type": "choice",
+     "choices": [
+      "tff",
+      "bff"
+     ],
+     "default": "tff",
+     "doc": "tff = top-field-first (broadcast/HDV/DV-NTSC), bff = bottom-first (DV-PAL)"
+    },
+    "preset": {
+     "type": "choice",
+     "choices": [
+      "Draft",
+      "Ultra Fast",
+      "Super Fast",
+      "Very Fast",
+      "Faster",
+      "Fast",
+      "Medium",
+      "Slow",
+      "Slower",
+      "Very Slow",
+      "Placebo"
+     ],
+     "default": "Medium",
+     "doc": "QTGMC speed/quality preset"
+    },
+    "output_fps": {
+     "type": "choice",
+     "choices": [
+      "single",
+      "double"
+     ],
+     "default": "single",
+     "doc": "single = same fps as source; double = 2x fps for smoothest motion"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "soft_hd_rebuild_2x",
+   "friendly": "Soft HD Rebuild 2X",
+   "summary": "Soft HD Rebuild 2X -- cleanup + Real-ESRGAN reconstruction for soft/undersampled HD",
+   "params": {
+    "rebuild": {
+     "type": "choice",
+     "choices": [
+      "conservative",
+      "balanced",
+      "aggressive"
+     ],
+     "default": "balanced",
+     "doc": "final detail recovery amount; conservative avoids halos, aggressive is for very soft sources"
+    },
+    "cleanup": {
+     "type": "choice",
+     "choices": [
+      "light",
+      "medium",
+      "strong"
+     ],
+     "default": "medium",
+     "doc": "pre-ML spectral cleanup so noise/compression is not amplified"
+    },
+    "model": {
+     "type": "choice",
+     "choices": [
+      "animevideov3",
+      "general-x4v3",
+      "general-wdn-x4v3",
+      "animejanaiV2-L1",
+      "animejanaiV2-L2",
+      "animejanaiV2-L3"
+     ],
+     "default": "general-x4v3",
+     "doc": "Real-ESRGAN model variant; keep default for mixed/live material"
+    },
+    "tile": {
+     "type": "int",
+     "default": 384,
+     "range": [
+      256,
+      768
+     ],
+     "doc": "input tile size in px; smaller = less VRAM, slower"
+    },
+    "tile_pad": {
+     "type": "int",
+     "default": 16,
+     "range": [
+      4,
+      64
+     ],
+     "doc": "tile padding to hide borders"
+    },
+    "backend": {
+     "type": "choice",
+     "choices": [
+      "auto",
+      "trt",
+      "ort_dml",
+      "ort_cpu"
+     ],
+     "default": "auto",
+     "doc": "auto = TRT on NVIDIA -> DirectML -> CPU"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "tivtc_ivtc",
+   "friendly": "TIVTC IVTC",
+   "summary": "TIVTC inverse-telecine (NTSC 29.97 fps telecined -> 23.976 fps progressive); reference-quality 3:2 pulldown removal",
+   "params": {
+    "pp": {
+     "type": "int",
+     "default": 6,
+     "range": [
+      0,
+      7
+     ],
+     "doc": "TFM post-processor mode (0=off..7=full deinterlace fallback)"
+    },
+    "cycle": {
+     "type": "int",
+     "default": 5,
+     "range": [
+      2,
+      25
+     ],
+     "doc": "TDecimate cycle length (5 = standard NTSC telecine)"
+    },
+    "rdrop": {
+     "type": "int",
+     "default": 1,
+     "range": [
+      1,
+      5
+     ],
+     "doc": "frames dropped per cycle (1 of 5 = NTSC default)"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "vsmlrt_realesrgan_2x",
+   "friendly": "Vsmlrt Realesrgan 2X",
+   "summary": "Real-ESRGAN ML 2x upscale (vs-mlrt) -- 1080p -> ~3840 with sharp face/fabric texture; TensorRT on NVIDIA",
+   "params": {
+    "model": {
+     "type": "choice",
+     "choices": [
+      "animevideov3",
+      "general-x4v3",
+      "general-wdn-x4v3",
+      "animejanaiV2-L1",
+      "animejanaiV2-L2",
+      "animejanaiV2-L3"
+     ],
+     "default": "general-x4v3",
+     "doc": "Real-ESRGAN model variant; general-x4v3 for live action, animevideov3 for 2D"
+    },
+    "tile": {
+     "type": "int",
+     "default": 384,
+     "range": [
+      256,
+      768
+     ],
+     "doc": "input tile size in px; smaller = less VRAM, slower"
+    },
+    "tile_pad": {
+     "type": "int",
+     "default": 16,
+     "range": [
+      4,
+      64
+     ],
+     "doc": "tile padding to hide seams"
+    },
+    "backend": {
+     "type": "choice",
+     "choices": [
+      "auto",
+      "trt",
+      "ort_dml",
+      "ort_cpu"
+     ],
+     "default": "auto",
+     "doc": "auto = TRT on NVIDIA -> DirectML -> CPU"
+    }
+   }
+  },
+  {
+   "palette": "restoration",
+   "name": "vsmlrt_rife_60fps",
+   "friendly": "Vsmlrt Rife 60fps",
+   "summary": "RIFE ML frame interpolation (vs-mlrt) -- 24->60fps smooth motion; cleaner than Resolve Optical Flow",
+   "params": {
+    "fps_mul": {
+     "type": "float",
+     "default": 2.5,
+     "range": [
+      1.5,
+      8.0
+     ],
+     "doc": "FPS multiplier; 2.5 for 24->60, 2 for 24->48, 4 for slow-mo"
+    },
+    "model": {
+     "type": "choice",
+     "choices": [
+      "rife_v4.4",
+      "rife_v4.6",
+      "rife_v4.9"
+     ],
+     "default": "rife_v4.6",
+     "doc": "RIFE model version; v4.6 is balanced, v4.9 is newest"
+    },
+    "backend": {
+     "type": "choice",
+     "choices": [
+      "auto",
+      "trt",
+      "ort_dml",
+      "ort_cpu"
+     ],
+     "default": "auto"
+    }
+   }
+  },
+  {
+   "palette": "retro",
+   "name": "camcorder_90s",
+   "friendly": "Camcorder 90s",
+   "summary": "Consumer camcorder feel -- softer than VHS, slight overexposure, mild bleed",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  },
+  {
+   "palette": "retro",
+   "name": "polaroid",
+   "friendly": "Polaroid",
+   "summary": "1970s-80s Polaroid SX-70 feel -- heavy candy-bloom highlights, warm cream midtones, edge vignette",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    },
+    "vignette": {
+     "type": "float",
+     "default": 0.55,
+     "range": [
+      0.0,
+      1.0
+     ],
+     "doc": "corner darkness; 0 = no vignette, 1 = corners go to black"
+    }
+   }
+  },
+  {
+   "palette": "retro",
+   "name": "vhs_crt",
+   "friendly": "VHS CRT",
+   "summary": "Composite-video / VHS / CRT -- chroma bleed, soft, analog noise",
+   "params": {
+    "intensity": {
+     "type": "float",
+     "default": 1.0,
+     "range": [
+      0.0,
+      2.0
+     ]
+    }
+   }
+  }
+ ],
+ "profiles": [
+  "archival_master",
+  "filmic_warm_35mm",
+  "resolve_handoff",
+  "shadow_clean_quick",
+  "vhs_dreamy"
+ ],
+ "encoders": [
+  "dnxhr_hq",
+  "dnxhr_hqx",
+  "dnxhr_lb",
+  "dnxhr_sq",
+  "h264_amf_q14",
+  "h264_amf_q17",
+  "h264_amf_q21",
+  "h264_crf14",
+  "h264_crf17",
+  "h264_crf21",
+  "h264_nvenc_q14",
+  "h264_nvenc_q17",
+  "h264_nvenc_q21",
+  "h264_qsv_q14",
+  "h264_qsv_q17",
+  "h264_qsv_q21",
+  "h265_amf_q14",
+  "h265_amf_q17",
+  "h265_amf_q21",
+  "h265_crf14",
+  "h265_crf17",
+  "h265_crf21",
+  "h265_nvenc_q14",
+  "h265_nvenc_q17",
+  "h265_nvenc_q21",
+  "h265_qsv_q14",
+  "h265_qsv_q17",
+  "h265_qsv_q21",
+  "prores_422",
+  "prores_422_mxf",
+  "prores_422hq",
+  "prores_422hq_mxf",
+  "prores_lt",
+  "prores_lt_mxf"
+ ]
+}

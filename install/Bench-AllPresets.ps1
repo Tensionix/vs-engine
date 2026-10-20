@@ -107,6 +107,17 @@ foreach ($pal in $palettes) {
     }
 }
 
+# The neural presets run on vs-mlrt: without it they are passed over, not failed - MLRT is offered only with an NVIDIA
+# RTX card (SERVICE - Install MLRT), and a machine without it has nothing to check there.
+$mlrtMarker = Join-Path $ProjectRoot 'system_core\vapoursynth\.audion-mlrt.marker'
+if (-not (Test-Path -LiteralPath $mlrtMarker)) {
+    $neural = @($presets | Where-Object { $_.IsMl })
+    if ($neural.Count -gt 0) {
+        Write-Host ("[SKIP] {0} neural preset(s) - MLRT is not installed: {1}" -f $neural.Count, (($neural | ForEach-Object Name) -join ', '))
+        $presets = @($presets | Where-Object { -not $_.IsMl })
+    }
+}
+
 if ($presets.Count -eq 0) { throw "No presets discovered under $PresetDir (palettes: $($palettes -join ', '))" }
 
 Write-Host "======================================================================"
@@ -129,9 +140,9 @@ Write-Host ""
 #     for half the suite. Each preset has its own sensible default, so we
 #     leave STRENGTH unset and let presets self-default.
 #   - AUDION_VS_MODEL must NOT be set globally either: vsmlrt presets each
-#     accept a different model namespace (RIFE expects rife_v4.6, ESRGAN
-#     wants general-x4v3, DPIR wants drunet_color). One global value
-#     breaks the other two. Per-preset overrides live in $presetOverrides.
+#     accept a different model namespace (ESRGAN wants animevideov3, DPIR
+#     wants drunet_color). One global value breaks the other. Per-preset
+#     overrides live in $presetOverrides.
 $baseEnv = @{
     AUDION_VS_INPUT             = $InputFile
     AUDION_VS_GRAIN_BACK        = '0.6'
@@ -165,9 +176,8 @@ $baseEnv = @{
 # Per-preset env overrides, keyed by preset basename. Applied on top of
 # $baseEnv. Empty string value clears the inherited base entry.
 $presetOverrides = @{
-    'vsmlrt_realesrgan_2x' = @{ AUDION_VS_MODEL = 'general-x4v3' }
-    'soft_hd_rebuild_2x'   = @{ AUDION_VS_MODEL = 'general-x4v3'; AUDION_VS_REBUILD = 'balanced'; AUDION_VS_CLEANUP = 'medium' }
-    'vsmlrt_rife_60fps'    = @{ AUDION_VS_MODEL = 'rife_v4.6' }
+    'vsmlrt_realesrgan_2x' = @{ AUDION_VS_MODEL = 'animevideov3' }
+    'soft_hd_rebuild_2x'   = @{ AUDION_VS_MODEL = 'animevideov3'; AUDION_VS_REBUILD = 'balanced'; AUDION_VS_CLEANUP = 'medium' }
     'dpir_denoise'         = @{ AUDION_VS_MODEL = 'drunet_color'; AUDION_VS_STRENGTH = '10' }
     'dehaze_local_contrast'= @{ AUDION_VS_STRENGTH = '1.0' }
     'derainbow_decross'    = @{ AUDION_VS_STRENGTH = '0.6' }

@@ -8,7 +8,7 @@ shim silently exits with code 1 and no output.
 
 `install\\Repair-PipShims.cmd` is the canonical fix. To make portability
 zero-touch, the orchestrator calls `ensure_pip_shims_repaired()` once per
-process at the top of `main.py` / `doctor.py`. It does a tiny ~8 KB read of
+process at the top of `cli.py` / `doctor.py`. It does a tiny ~8 KB read of
 `vspipe.exe`, compares the embedded shebang path to the current
 `system_core/vapoursynth/python.exe`, and on mismatch invokes the repair
 script silently. No-op if shebang is already correct or vspipe is missing.

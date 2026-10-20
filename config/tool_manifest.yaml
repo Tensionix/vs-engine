@@ -1,0 +1,1352 @@
+# Audion VS Engine: what the program can do.
+#
+# One source for the window, the console command (vs_cli.cmd) and the engine. An operation is a preset of a palette
+# (its id is the name of its .vpy and is never renamed), a run of a profile, or a service of SERVICE. The registry of the
+# engine (system_core\engine\presets.py) is read from here; the defaults of a .vpy (os.environ.get(..., "...")) stay for a
+# bare vspipe and a test holds them to the defaults here.
+#
+# A field: id, type (radio | checkbox | number | text), label/label_ru, tooltip/tooltip_ru, default; a number has min,
+# max and step (a whole step - a whole number); a choice - options with value, label/label_ru and a tooltip when it needs
+# one. group names the block of the form: none - the parameters of the preset, processing, encoding, run.
+# visible_if shows a field only when the form holds what it says.
+#
+# A palette (operation_groups) gives every preset under it its parameters (palette) and its fields after the preset's
+# own: the machine - the processing and the cards of the encoder - and the run.
+#
+# A preset: title (its friendly name, Title Case), about (what it is for, a few words), description (what it does).
+# accel: what of the preset the block PROCESSING moves - bm3d (BM3D: Vulkan or the CPU), mlrt (a neural network: TensorRT,
+# DirectML or the CPU), any (a profile: whatever its preset has); without it the block is not shown - nothing of the preset
+# runs anywhere but on the CPU. needs: mlrt - the preset runs on vs-mlrt, installed by SETUP when an NVIDIA RTX card
+# is found; without RTX and without MLRT the window does not show it and the console refuses it with the reason.
+
+tool:
+  id: audion_vs_engine
+  name: "Audion VS Engine"
+  category: "Video"
+
+# The words of PROCESSING by what the preset moves with it (accel of a preset); bm3d - the words of the field itself.
+accel_texts:
+  mlrt:
+    tooltip: "Where the neural network runs. Auto: TensorRT on an NVIDIA RTX card, else DirectML on the video card, else the CPU."
+    tooltip_ru: "Где работает нейросеть. Авто: TensorRT на видеокарте NVIDIA RTX, иначе DirectML на видеокарте, иначе процессор."
+    options:
+      cpu:
+        tooltip: "The network on the CPU (ONNX Runtime): it works everywhere and is many times slower."
+        tooltip_ru: "Нейросеть на процессоре (ONNX Runtime): работает везде и во много раз медленнее."
+      gpu:
+        tooltip: "The network on the video card: TensorRT on NVIDIA RTX, DirectML on another card."
+        tooltip_ru: "Нейросеть на видеокарте: TensorRT на NVIDIA RTX, DirectML на другой карте."
+  any:
+    tooltip: "Where BM3D and the neural networks of the preset of the profile run. Auto: on the video card when there is one that works, else on the CPU."
+    tooltip_ru: "Где работают BM3D и нейросети пресета профиля. Авто: на видеокарте, когда есть рабочая, иначе на процессоре."
+    options:
+      cpu:
+        tooltip: "BM3D and the networks on the CPU."
+        tooltip_ru: "BM3D и нейросети на процессоре."
+      gpu:
+        tooltip: "BM3D through Vulkan, the networks through TensorRT on NVIDIA RTX or DirectML on another card."
+        tooltip_ru: "BM3D через Vulkan, нейросети через TensorRT на NVIDIA RTX или DirectML на другой карте."
+
+paths:
+  input: "input"
+  output: "output"
+  logs: "logs"
+  report: "report"
+  config: "config"
+
+_shared_fields:
+  noise: &noise
+    id: noise
+    type: "radio"
+    choice_style: "buttons"
+    label: "Noise"
+    label_ru: "Шум"
+    tooltip: "Auto: the strength follows the noise measured in the source and never goes below the setting. Fixed: the setting as it is."
+    tooltip_ru: "Авто: сила следует за шумом, измеренным в исходнике, и не опускается ниже настройки. Как задано: настройка как есть."
+    default: "auto"
+    options:
+      - {value: "auto", label: "Auto", label_ru: "Авто"}
+      - {value: "fixed", label: "Fixed", label_ru: "Как задано"}
+
+  intensity: &intensity
+    id: intensity
+    type: "number"
+    label: "Intensity"
+    label_ru: "Интенсивность"
+    tooltip: "The strength of the whole look: 0 - off, 1 - as tuned, 2 - heavy."
+    tooltip_ru: "Сила всего образа: 0 - выключен, 1 - как настроен, 2 - сильно."
+    default: 1.0
+    min: 0.0
+    max: 2.0
+    step: 0.05
+
+  deband_y: &deband_y
+    id: y
+    type: "number"
+    label: "Y threshold"
+    label_ru: "Порог Y"
+    tooltip: "neo_f3kdb threshold of the luma: how strong a step of brightness is still smoothed."
+    tooltip_ru: "Порог neo_f3kdb по яркости: какой перепад яркости ещё сглаживается."
+    default: 48
+    min: 0
+    max: 128
+    step: 1
+
+  deband_cb: &deband_cb
+    id: cb
+    type: "number"
+    label: "Cb threshold"
+    label_ru: "Порог Cb"
+    tooltip: "neo_f3kdb threshold of the blue-difference colour plane."
+    tooltip_ru: "Порог neo_f3kdb по цветоразностной плоскости Cb."
+    default: 32
+    min: 0
+    max: 128
+    step: 1
+
+  deband_cr: &deband_cr
+    id: cr
+    type: "number"
+    label: "Cr threshold"
+    label_ru: "Порог Cr"
+    tooltip: "neo_f3kdb threshold of the red-difference colour plane."
+    tooltip_ru: "Порог neo_f3kdb по цветоразностной плоскости Cr."
+    default: 32
+    min: 0
+    max: 128
+    step: 1
+
+  blksize: &blksize
+    id: blksize
+    type: "radio"
+    choice_style: "buttons"
+    label: "Block size"
+    label_ru: "Размер блока"
+    tooltip: "The block of the motion search: 16 for SD and HD, 8 for fine detail and 4K."
+    tooltip_ru: "Блок поиска движения: 16 для SD и HD, 8 для мелкой детали и 4K."
+    default: "16"
+    options:
+      - {value: "8", label: "8", label_ru: "8"}
+      - {value: "16", label: "16", label_ru: "16"}
+
+  # The fields of the machine, the same for every preset: set on one page, they are set on all.
+  machine: &machine
+    - id: vs_accel
+      type: "radio"
+      choice_style: "buttons"
+      group: "processing"
+      label: "Processing"
+      label_ru: "Обработка"
+      tooltip: "Where BM3D runs. Auto: on the video card when VapourSynth sees a working Vulkan device, else on the CPU. The other filters always run on the CPU."
+      tooltip_ru: "Где работает BM3D. Авто: на видеокарте, когда VapourSynth видит рабочее устройство Vulkan, иначе на процессоре. Остальные фильтры всегда идут на процессоре."
+      default: "auto"
+      options:
+        - {value: "auto", label: "Auto", label_ru: "Авто"}
+        - {value: "cpu", label: "CPU", label_ru: "Процессор", tooltip: "BM3D on the CPU: bm3d (or bm3dcpu where it loads).", tooltip_ru: "BM3D на процессоре: bm3d (или bm3dcpu, где он загружается)."}
+        - {value: "gpu", label: "GPU", label_ru: "Видеокарта", tooltip: "BM3D on the video card through Vulkan (bm3dvk), any maker; the CPU when there is no Vulkan device.", tooltip_ru: "BM3D на видеокарте через Vulkan (bm3dvk), любой производитель; процессор, когда устройства Vulkan нет."}
+
+    - id: encode_family
+      type: "radio"
+      choice_style: "cards"
+      group: "encoding"
+      refresh_on_change: true
+      label: "Codec"
+      label_ru: "Кодек"
+      tooltip: "What the result is written with."
+      tooltip_ru: "Чем записывается результат."
+      default: "x264"
+      options:
+        - {value: "x264", label: "x.264", label_ru: "x.264", tone: "lossy"}
+        - {value: "x265", label: "x.265", label_ru: "x.265", tone: "lossy"}
+        - {value: "prores", label: "ProRes", label_ru: "ProRes", tone: "lossless"}
+        - {value: "dnxhr", label: "DNxHR", label_ru: "DNxHR", tone: "lossless"}
+
+    - id: encode_backend
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "Encoder"
+      label_ru: "Кодер"
+      tooltip: "The CPU or the hardware encoder of the video card. A hardware one this machine has not passed (SERVICE - Hardware capabilities) is off."
+      tooltip_ru: "Процессор или аппаратный кодер видеокарты. Аппаратный, не прошедший проверку на этой машине (СЕРВИС - Возможности оборудования), выключен."
+      default: "cpu"
+      visible_if: {encode_family: ["x264", "x265"]}
+      options:
+        - {value: "cpu", label: "CPU", label_ru: "Процессор"}
+        - {value: "nvenc", label: "NVIDIA", label_ru: "NVIDIA"}
+        - {value: "qsv", label: "QuickSync", label_ru: "QuickSync", tooltip: "Intel QuickSync: the hardware encoder of Intel graphics.", tooltip_ru: "Intel QuickSync: аппаратный кодер графики Intel."}
+        - {value: "amf", label: "AMF", label_ru: "AMF"}
+
+    - id: encode_quality
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "Quality"
+      label_ru: "Качество"
+      tooltip: "14 - near lossless, for the archive; 17 - almost invisible losses; 21 - web, proxy, preview."
+      tooltip_ru: "14 - почти без потерь, для архива; 17 - потери почти незаметны; 21 - веб, прокси, просмотр."
+      default: "14"
+      visible_if: {encode_family: ["x264", "x265"]}
+      options:
+        - {value: "14", label: "14", label_ru: "14"}
+        - {value: "17", label: "17", label_ru: "17"}
+        - {value: "21", label: "21", label_ru: "21"}
+
+    - id: encode_container
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "Container"
+      label_ru: "Контейнер"
+      tooltip: "The file x.264 and x.265 are written into."
+      tooltip_ru: "Файл, в который пишутся x.264 и x.265."
+      default: "mp4"
+      visible_if: {encode_family: ["x264", "x265"]}
+      options:
+        - {value: "mp4", label: "MP4", label_ru: "MP4"}
+        - {value: "mkv", label: "MKV", label_ru: "MKV"}
+
+    - id: prores_profile
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "ProRes profile"
+      label_ru: "Профиль ProRes"
+      tooltip: "LT is enough for grading; HQ for keying and repeated passes."
+      tooltip_ru: "LT достаточно для грейдинга; HQ - для кеинга и повторных проходов."
+      default: "lt"
+      visible_if: {encode_family: "prores"}
+      options:
+        - {value: "lt", label: "LT", label_ru: "LT"}
+        - {value: "422", label: "422", label_ru: "422"}
+        - {value: "hq", label: "HQ", label_ru: "HQ"}
+
+    - id: prores_wrapper
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "Wrapper"
+      label_ru: "Обёртка"
+      tooltip: "MOV for Resolve and Final Cut; MXF for Premiere and Avid."
+      tooltip_ru: "MOV для Resolve и Final Cut; MXF для Premiere и Avid."
+      default: "mov"
+      visible_if: {encode_family: "prores"}
+      options:
+        - {value: "mov", label: "MOV", label_ru: "MOV"}
+        - {value: "mxf", label: "MXF", label_ru: "MXF"}
+
+    - id: dnxhr_profile
+      type: "radio"
+      choice_style: "buttons"
+      group: "encoding"
+      label: "DNxHR profile"
+      label_ru: "Профиль DNxHR"
+      tooltip: "LB - low bandwidth, SQ - standard, HQ - high quality, HQX - 10 bit."
+      tooltip_ru: "LB - низкий поток, SQ - стандарт, HQ - высокое качество, HQX - 10 бит."
+      default: "hq"
+      visible_if: {encode_family: "dnxhr"}
+      options:
+        - {value: "hq", label: "HQ", label_ru: "HQ"}
+        - {value: "hqx", label: "HQX", label_ru: "HQX"}
+        - {value: "lb", label: "LB", label_ru: "LB"}
+        - {value: "sq", label: "SQ", label_ru: "SQ"}
+
+    - id: overwrite
+      type: "checkbox"
+      group: "run"
+      label: "Overwrite"
+      label_ru: "Перезаписать"
+      tooltip: "Make the result again where it is already there. Off: a file that is already done is passed over."
+      tooltip_ru: "Сделать результат заново там, где он уже есть. Выключено: готовый файл пропускается."
+      default: false
+
+operation_groups:
+  # ==================================================================================================================
+  - id: precision
+    title: "PRECISION"
+    title_ru: "ТОЧНОСТЬ"
+    parameters: {palette: "precision"}
+    fields: *machine
+    children:
+      - id: mild_denoise
+        title: "Mild Denoise"
+        title_ru: "Мягкий шумодав"
+        about: "Any noise, any machine"
+        about_ru: "Любой шум, любая машина"
+        description: "Spectral denoise with DFTTest on the CPU."
+        description_ru: "Спектральный шумодав DFTTest на процессоре."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: strength
+            type: "radio"
+            choice_style: "buttons"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "DFTTest sigma: light 4, medium 8, strong 14."
+            tooltip_ru: "Сигма DFTTest: слабо 4, средне 8, сильно 14."
+            default: "medium"
+            options:
+              - {value: "light", label: "Light", label_ru: "Слабо"}
+              - {value: "medium", label: "Medium", label_ru: "Средне"}
+              - {value: "strong", label: "Strong", label_ru: "Сильно"}
+          - *noise
+
+      - id: shadow_denoise_sota
+        title: "Shadow Denoise SOTA"
+        title_ru: "Шумодав теней SOTA"
+        about: "BM3D in the shadows only"
+        about_ru: "BM3D только в тенях"
+        description: "BM3D on float, held to the shadows by a luma mask; micro-grain put back so the shadows are not plastic."
+        description_ru: "BM3D в плавающей точке, удержанный в тенях маской яркости; микрозерно возвращается, чтобы тени не были пластиковыми."
+        accel: "bm3d"
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: sigma
+            type: "number"
+            label: "BM3D sigma"
+            label_ru: "Сигма BM3D"
+            tooltip: "BM3D strength on the luma; the colour gets 0.6 of it."
+            tooltip_ru: "Сила BM3D по яркости; цвет получает 0,6 от неё."
+            default: 2.5
+            min: 1.0
+            max: 4.0
+            step: 0.1
+          - *noise
+          - id: grain_back
+            type: "number"
+            label: "Grain back"
+            label_ru: "Возврат зерна"
+            tooltip: "Micro-grain put back over the cleaned shadows; 0 - none."
+            tooltip_ru: "Микрозерно поверх очищенных теней; 0 - без него."
+            default: 0.6
+            min: 0.0
+            max: 2.0
+            step: 0.05
+          - id: shadow_threshold
+            type: "number"
+            label: "Shadow threshold"
+            label_ru: "Порог теней"
+            tooltip: "The brightness (0..1) where the shadows end."
+            tooltip_ru: "Яркость (0..1), на которой кончаются тени."
+            default: 0.2
+            min: 0.0
+            max: 0.5
+            step: 0.01
+          - id: transition
+            type: "number"
+            label: "Mask transition"
+            label_ru: "Переход маски"
+            tooltip: "How wide the smooth passage below the threshold is: the shadows are cleaned fully this far under it, less and less up to it."
+            tooltip_ru: "Ширина плавного перехода под порогом: на столько ниже него тени чистятся полностью, к самому порогу - всё слабее."
+            default: 0.1
+            min: 0.01
+            max: 0.4
+            step: 0.01
+          - id: preview_mask
+            type: "checkbox"
+            label: "Show mask"
+            label_ru: "Показать маску"
+            tooltip: "The result is the shadow mask itself, not the picture: for setting the threshold."
+            tooltip_ru: "Результат - сама маска теней, а не картинка: для подбора порога."
+            default: false
+
+      - id: chroma_cleanup
+        title: "Chroma Cleanup"
+        title_ru: "Чистка цветового шума"
+        about: "Colour noise only"
+        about_ru: "Только цветовой шум"
+        description: "DFTTest on the colour planes only: the colour noise goes, the luma is not touched."
+        description_ru: "DFTTest только по цветовым плоскостям: цветовой шум уходит, яркость не трогается."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: strength
+            type: "radio"
+            choice_style: "buttons"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "Sigma on the colour: light 6, medium 12, strong 20."
+            tooltip_ru: "Сигма по цвету: слабо 6, средне 12, сильно 20."
+            default: "medium"
+            options:
+              - {value: "light", label: "Light", label_ru: "Слабо"}
+              - {value: "medium", label: "Medium", label_ru: "Средне"}
+              - {value: "strong", label: "Strong", label_ru: "Сильно"}
+          - *noise
+
+      - id: deband_safe
+        title: "Deband Safe"
+        title_ru: "Мягкий дебанд"
+        about: "Smooth gradients, no grain"
+        about_ru: "Гладкие градиенты без зерна"
+        description: "neo_f3kdb lightly: the steps of gradients go, no grain is added."
+        description_ru: "Лёгкий neo_f3kdb: ступени градиентов уходят, зерно не добавляется."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: range
+            type: "number"
+            label: "Deband range"
+            label_ru: "Радиус дебанда"
+            tooltip: "How far neo_f3kdb looks for the neighbours it smooths with; larger - stronger."
+            tooltip_ru: "Как далеко neo_f3kdb ищет соседей для сглаживания; больше - сильнее."
+            default: 12
+            min: 8
+            max: 32
+            step: 1
+          - *deband_y
+          - *deband_cb
+          - *deband_cr
+
+      - id: deband_fine_grain
+        title: "Deband Fine Grain"
+        title_ru: "Дебанд с тонким зерном"
+        about: "Gradients and micro-texture"
+        about_ru: "Градиенты и микрофактура"
+        description: "neo_f3kdb, then AddGrain puts a fine texture back over the smoothed gradients."
+        description_ru: "neo_f3kdb, затем AddGrain возвращает тонкую фактуру поверх сглаженных градиентов."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: range
+            type: "number"
+            label: "Deband range"
+            label_ru: "Радиус дебанда"
+            tooltip: "How far neo_f3kdb looks for the neighbours it smooths with; larger - stronger."
+            tooltip_ru: "Как далеко neo_f3kdb ищет соседей для сглаживания; больше - сильнее."
+            default: 14
+            min: 8
+            max: 32
+            step: 1
+          - *deband_y
+          - *deband_cb
+          - *deband_cr
+          - id: grain_var
+            type: "number"
+            label: "Grain variance"
+            label_ru: "Дисперсия зерна"
+            tooltip: "AddGrain variance on the luma; the colour gets 0.27 of it."
+            tooltip_ru: "Дисперсия AddGrain по яркости; цвет получает 0,27 от неё."
+            default: 0.6
+            min: 0.0
+            max: 2.0
+            step: 0.05
+
+      - id: filmic_rebuild
+        title: "Filmic Rebuild"
+        title_ru: "Плёночная пересборка"
+        about: "Denoise, deband, grain"
+        about_ru: "Шумодав, дебанд, зерно"
+        description: "BM3D, then neo_f3kdb, then grain laid by brightness: the digital noise and banding go, a controlled grain comes."
+        description_ru: "BM3D, затем neo_f3kdb, затем зерно по яркости: цифровой шум и полосы уходят, приходит управляемое зерно."
+        accel: "bm3d"
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: sigma
+            type: "number"
+            label: "BM3D sigma"
+            label_ru: "Сигма BM3D"
+            tooltip: "BM3D strength on the luma; the colour gets 0.6 of it."
+            tooltip_ru: "Сила BM3D по яркости; цвет получает 0,6 от неё."
+            default: 2.0
+            min: 1.0
+            max: 3.5
+            step: 0.1
+          - *noise
+          - id: deband_range
+            type: "number"
+            label: "Deband range"
+            label_ru: "Радиус дебанда"
+            tooltip: "How far neo_f3kdb looks for the neighbours it smooths with; larger - stronger."
+            tooltip_ru: "Как далеко neo_f3kdb ищет соседей для сглаживания; больше - сильнее."
+            default: 14
+            min: 8
+            max: 32
+            step: 1
+          - id: grain_shadow
+            type: "number"
+            label: "Grain in shadows"
+            label_ru: "Зерно в тенях"
+            tooltip: "Grain variance laid where the picture is darker than the shadow threshold."
+            tooltip_ru: "Дисперсия зерна там, где картинка темнее порога теней."
+            default: 1.5
+            min: 0.0
+            max: 3.0
+            step: 0.05
+          - id: grain_mid
+            type: "number"
+            label: "Grain in mid-tones"
+            label_ru: "Зерно в средних"
+            tooltip: "Grain variance laid between the two thresholds."
+            tooltip_ru: "Дисперсия зерна между двумя порогами."
+            default: 0.9
+            min: 0.0
+            max: 3.0
+            step: 0.05
+          - id: grain_high
+            type: "number"
+            label: "Grain in highlights"
+            label_ru: "Зерно в светах"
+            tooltip: "Grain variance laid where the picture is brighter than the highlight threshold."
+            tooltip_ru: "Дисперсия зерна там, где картинка светлее порога светов."
+            default: 0.4
+            min: 0.0
+            max: 3.0
+            step: 0.05
+          - id: shadow_threshold
+            type: "number"
+            label: "Shadow threshold"
+            label_ru: "Порог теней"
+            tooltip: "The brightness (0..1) where the shadows end."
+            tooltip_ru: "Яркость (0..1), на которой кончаются тени."
+            default: 0.3
+            min: 0.0
+            max: 0.5
+            step: 0.01
+          - id: high_threshold
+            type: "number"
+            label: "Highlight threshold"
+            label_ru: "Порог светов"
+            tooltip: "The brightness (0..1) where the highlights begin."
+            tooltip_ru: "Яркость (0..1), с которой начинаются света."
+            default: 0.65
+            min: 0.5
+            max: 1.0
+            step: 0.01
+
+      - id: archive_clean
+        title: "Archive Clean"
+        title_ru: "Чистый архив"
+        about: "Neutral master, no grain"
+        about_ru: "Нейтральный мастер без зерна"
+        description: "DFTTest lightly and neo_f3kdb lightly, no grain: a neutral master for the archive."
+        description_ru: "Лёгкий DFTTest и лёгкий neo_f3kdb без зерна: нейтральный мастер для архива."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: denoise
+            type: "radio"
+            choice_style: "buttons"
+            label: "Denoise"
+            label_ru: "Шумодав"
+            tooltip: "DFTTest sigma: light 4, medium 8, strong 14."
+            tooltip_ru: "Сигма DFTTest: слабо 4, средне 8, сильно 14."
+            default: "light"
+            options:
+              - {value: "light", label: "Light", label_ru: "Слабо"}
+              - {value: "medium", label: "Medium", label_ru: "Средне"}
+              - {value: "strong", label: "Strong", label_ru: "Сильно"}
+          - *noise
+          - id: range
+            type: "number"
+            label: "Deband range"
+            label_ru: "Радиус дебанда"
+            tooltip: "How far neo_f3kdb looks for the neighbours it smooths with; larger - stronger."
+            tooltip_ru: "Как далеко neo_f3kdb ищет соседей для сглаживания; больше - сильнее."
+            default: 10
+            min: 8
+            max: 32
+            step: 1
+
+      - id: pregrade_prep
+        title: "Pregrade Prep"
+        title_ru: "Подготовка к грейдингу"
+        about: "Minimum touch before Resolve"
+        about_ru: "Минимум вмешательства перед Resolve"
+        description: "A very light DFTTest and nothing else: the material goes to grading almost as it was."
+        description_ru: "Очень лёгкий DFTTest и ничего больше: материал уходит в грейдинг почти таким, каким был."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: strength
+            type: "radio"
+            choice_style: "buttons"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "DFTTest sigma: light 3, medium 6."
+            tooltip_ru: "Сигма DFTTest: слабо 3, средне 6."
+            default: "light"
+            options:
+              - {value: "light", label: "Light", label_ru: "Слабо"}
+              - {value: "medium", label: "Medium", label_ru: "Средне"}
+          - *noise
+
+  # ==================================================================================================================
+  - id: film_looks
+    title: "FILM LOOKS"
+    title_ru: "ПЛЁНКА"
+    parameters: {palette: "film_looks"}
+    fields: *machine
+    children:
+      - id: cinematic
+        title: "Cinematic"
+        title_ru: "Кинематографичный"
+        about: "A subtle film look, safe"
+        about_ru: "Мягкий плёночный образ, безопасный"
+        description: "A universal subtle film look for any material."
+        description_ru: "Универсальный мягкий плёночный образ для любого материала."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: film_35mm
+        title: "Film 35mm"
+        title_ru: "Плёнка 35 мм"
+        about: "Kodak 35 mm, three stocks"
+        about_ru: "Kodak 35 мм, три плёнки"
+        description: "A Kodak 35 mm look with the stock to choose: 250D, 500T or 50D."
+        description_ru: "Образ Kodak 35 мм с выбором плёнки: 250D, 500T или 50D."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: stock
+            type: "radio"
+            choice_style: "buttons"
+            label: "Stock"
+            label_ru: "Плёнка"
+            tooltip: "250D - daylight, neutral; 500T - tungsten, cooler; 50D - the cleanest."
+            tooltip_ru: "250D - дневная, нейтральная; 500T - лампы накаливания, холоднее; 50D - самая чистая."
+            default: "250D"
+            options:
+              - {value: "250D", label: "250D", label_ru: "250D"}
+              - {value: "500T", label: "500T", label_ru: "500T"}
+              - {value: "50D", label: "50D", label_ru: "50D"}
+          - *intensity
+
+      - id: film_16mm
+        title: "Film 16mm"
+        title_ru: "Плёнка 16 мм"
+        about: "Softer, grainier, lifted blacks"
+        about_ru: "Мягче, зернистее, приподнятый чёрный"
+        description: "A 16 mm feel: heavier softness, visible grain, lifted blacks."
+        description_ru: "Ощущение 16 мм: больше мягкости, видимое зерно, приподнятый чёрный."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: super8
+        title: "Super 8"
+        title_ru: "Super 8"
+        about: "Heaviest grain, faded 70s"
+        about_ru: "Самое крупное зерно, выцветшие 70-е"
+        description: "Super 8: the heaviest grain, the softest optics, the faded contrast of the 70s."
+        description_ru: "Super 8: самое крупное зерно, самая мягкая оптика, выцветший контраст 70-х."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: bleach_bypass
+        title: "Bleach Bypass"
+        title_ru: "Отбеливание"
+        about: "Hard contrast, little colour"
+        about_ru: "Жёсткий контраст, мало цвета"
+        description: "High contrast, desaturated, harsh - the look of a bleach bypass print."
+        description_ru: "Высокий контраст, обесцвеченность, жёсткость - вид печати с пропуском отбеливания."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: imax_70mm
+        title: "IMAX 70mm"
+        title_ru: "IMAX 70 мм"
+        about: "Large format, the finest grain"
+        about_ru: "Большой формат, тончайшее зерно"
+        description: "A 65/70 mm IMAX feel: minimal grain, a gentle halation of the highlights, a weave of the gate up to 2 pixels."
+        description_ru: "Ощущение IMAX 65/70 мм: минимум зерна, мягкий ореол светов, дрожание кадрового окна до 2 пикселей."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+          - id: gate_weave
+            type: "checkbox"
+            label: "Gate weave"
+            label_ru: "Дрожание кадра"
+            tooltip: "Every frame moves by up to 2 pixels, as film does in the gate of a projector; off - the picture stands still. One file gives the same weave every time."
+            tooltip_ru: "Каждый кадр сдвигается до 2 пикселей, как плёнка в кадровом окне проектора; выключено - картинка стоит. Один файл даёт одно и то же дрожание."
+            default: true
+
+      - id: anamorphic_scope
+        title: "Anamorphic Scope"
+        title_ru: "Анаморфот"
+        about: "Blue streaks, teal shadows"
+        about_ru: "Синие блики, бирюзовые тени"
+        description: "The cinemascope look: horizontal blue lens flares on the highlights alone and cool teal shadows."
+        description_ru: "Образ синемаскопа: горизонтальные синие блики только на светах и холодные бирюзовые тени."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+          - id: flare_len
+            type: "number"
+            label: "Flare length"
+            label_ru: "Длина блика"
+            tooltip: "The length of a streak in pixels: longer - more dramatic."
+            tooltip_ru: "Длина полосы блика в пикселях: длиннее - драматичнее."
+            default: 96
+            min: 32
+            max: 256
+            step: 1
+          - id: flare_thr
+            type: "number"
+            label: "Flare threshold"
+            label_ru: "Порог блика"
+            tooltip: "From what brightness a highlight flares: lower - more of the picture flares."
+            tooltip_ru: "С какой яркости свет даёт блик: ниже - бликует больше картинки."
+            default: 0.78
+            min: 0.0
+            max: 1.0
+            step: 0.01
+          - id: teal_shadow
+            type: "number"
+            label: "Teal shadows"
+            label_ru: "Бирюза в тенях"
+            tooltip: "The strength of the cool teal tint in the shadows."
+            tooltip_ru: "Сила холодного бирюзового оттенка в тенях."
+            default: 0.35
+            min: 0.0
+            max: 1.0
+            step: 0.05
+
+  # ==================================================================================================================
+  - id: retro
+    title: "RETRO"
+    title_ru: "РЕТРО"
+    parameters: {palette: "retro"}
+    fields: *machine
+    children:
+      - id: vhs_crt
+        title: "VHS CRT"
+        title_ru: "VHS и кинескоп"
+        about: "Tape, bleed, analog noise"
+        about_ru: "Кассета, растекание цвета, аналоговый шум"
+        description: "Composite video, VHS, a CRT: the colour bleeds, the picture is soft, analog noise."
+        description_ru: "Композитный сигнал, VHS, кинескоп: цвет растекается, картинка мягкая, аналоговый шум."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: camcorder_90s
+        title: "Camcorder 90s"
+        title_ru: "Камкордер 90-х"
+        about: "A home camera of the 90s"
+        about_ru: "Домашняя камера 90-х"
+        description: "A consumer camcorder: softer than VHS, slightly overexposed, a mild colour bleed."
+        description_ru: "Бытовой камкордер: мягче VHS, слегка пересвечен, лёгкое растекание цвета."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+
+      - id: polaroid
+        title: "Polaroid"
+        title_ru: "Полароид"
+        about: "An instant photo of the 70s and 80s"
+        about_ru: "Моментальное фото 70-х и 80-х"
+        description: "A Polaroid SX-70 feel: a candy bloom of the highlights, warm cream midtones, darker corners."
+        description_ru: "Ощущение Polaroid SX-70: карамельное свечение светов, тёплые кремовые полутона, тёмные углы."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - *intensity
+          - id: vignette
+            type: "number"
+            label: "Vignette"
+            label_ru: "Виньетка"
+            tooltip: "How dark the corners go: 0 - no vignette, 1 - the corners go black."
+            tooltip_ru: "Насколько темнеют углы: 0 - без виньетки, 1 - углы уходят в чёрный."
+            default: 0.55
+            min: 0.0
+            max: 1.0
+            step: 0.05
+
+  # ==================================================================================================================
+  - id: restoration
+    title: "RESTORATION"
+    title_ru: "РЕСТАВРАЦИЯ"
+    parameters: {palette: "restoration"}
+    fields: *machine
+    children:
+      - id: qtgmc_deinterlace
+        title: "QTGMC Deinterlace"
+        title_ru: "Деинтерлейс QTGMC"
+        about: "Interlaced video to progressive"
+        about_ru: "Чересстрочное видео в прогрессивное"
+        description: "QTGMC (NNEDI3 and MVTools): the reference deinterlacer for interlaced sources."
+        description_ru: "QTGMC (NNEDI3 и MVTools): эталонный деинтерлейсер для чересстрочных исходников."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: field_order
+            type: "radio"
+            choice_style: "buttons"
+            label: "Field order"
+            label_ru: "Порядок полей"
+            tooltip: "TFF - top field first (broadcast, HDV, DV NTSC); BFF - bottom field first (DV PAL)."
+            tooltip_ru: "TFF - первым верхнее поле (эфир, HDV, DV NTSC); BFF - первым нижнее (DV PAL)."
+            default: "tff"
+            options:
+              - {value: "tff", label: "TFF", label_ru: "TFF"}
+              - {value: "bff", label: "BFF", label_ru: "BFF"}
+          - id: preset
+            type: "radio"
+            choice_style: "buttons"
+            label: "QTGMC preset"
+            label_ru: "Пресет QTGMC"
+            tooltip: "Speed against quality: Draft is the fastest, Placebo the slowest."
+            tooltip_ru: "Скорость против качества: Draft - самый быстрый, Placebo - самый медленный."
+            default: "Medium"
+            options:
+              - {value: "Draft", label: "Draft", label_ru: "Draft"}
+              - {value: "Ultra Fast", label: "Ultra Fast", label_ru: "Ultra Fast"}
+              - {value: "Super Fast", label: "Super Fast", label_ru: "Super Fast"}
+              - {value: "Very Fast", label: "Very Fast", label_ru: "Very Fast"}
+              - {value: "Faster", label: "Faster", label_ru: "Faster"}
+              - {value: "Fast", label: "Fast", label_ru: "Fast"}
+              - {value: "Medium", label: "Medium", label_ru: "Medium"}
+              - {value: "Slow", label: "Slow", label_ru: "Slow"}
+              - {value: "Slower", label: "Slower", label_ru: "Slower"}
+              - {value: "Very Slow", label: "Very Slow", label_ru: "Very Slow"}
+              - {value: "Placebo", label: "Placebo", label_ru: "Placebo"}
+          - id: output_fps
+            type: "radio"
+            choice_style: "buttons"
+            label: "Output frame rate"
+            label_ru: "Частота на выходе"
+            tooltip: "Single - the frame rate of the source; double - twice as many frames, the smoothest motion."
+            tooltip_ru: "Одинарная - частота исходника; двойная - вдвое больше кадров, самое плавное движение."
+            default: "single"
+            options:
+              - {value: "single", label: "Single", label_ru: "Одинарная"}
+              - {value: "double", label: "Double", label_ru: "Двойная"}
+
+      - id: nnedi3_upscale_2x
+        title: "NNEDI3 Upscale 2X"
+        title_ru: "Увеличение NNEDI3 2X"
+        about: "Twice the size, no ML"
+        about_ru: "Вдвое больше, без нейросетей"
+        description: "NNEDI3 enlarges the picture twice, the same every run, without a neural network."
+        description_ru: "NNEDI3 увеличивает картинку вдвое, одинаково при каждом прогоне, без нейросети."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: quality
+            type: "radio"
+            choice_style: "buttons"
+            label: "Quality"
+            label_ru: "Качество"
+            tooltip: "Fast - a lighter NNEDI3; balanced - as tuned; best - slower, cleaner edges."
+            tooltip_ru: "Быстро - облегчённый NNEDI3; сбалансировано - как настроено; лучшее - медленнее, чище края."
+            default: "balanced"
+            options:
+              - {value: "fast", label: "Fast", label_ru: "Быстро"}
+              - {value: "balanced", label: "Balanced", label_ru: "Сбалансировано"}
+              - {value: "best", label: "Best", label_ru: "Лучшее"}
+          - id: chroma
+            type: "radio"
+            choice_style: "buttons"
+            label: "Colour upscale"
+            label_ru: "Увеличение цвета"
+            tooltip: "Spline36 is the safer one; NNEDI3 is sharper and slower."
+            tooltip_ru: "Spline36 надёжнее; NNEDI3 резче и медленнее."
+            default: "spline36"
+            options:
+              - {value: "spline36", label: "Spline36", label_ru: "Spline36"}
+              - {value: "nnedi3", label: "NNEDI3", label_ru: "NNEDI3"}
+
+      - id: mvtools_mcdegrain
+        title: "MVTools MCDegrain"
+        title_ru: "MVTools MCDegrain"
+        about: "Noise by motion, detail kept"
+        about_ru: "Шум по движению, деталь цела"
+        description: "Temporal denoise along the motion (MVTools and MDegrain): the noise goes, the detail stays sharp."
+        description_ru: "Временной шумодав вдоль движения (MVTools и MDegrain): шум уходит, деталь остаётся резкой."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: radius
+            type: "number"
+            label: "Radius"
+            label_ru: "Радиус"
+            tooltip: "How many frames before and after are taken."
+            tooltip_ru: "Сколько кадров до и после берётся."
+            default: 2
+            min: 1
+            max: 3
+            step: 1
+          - id: thsad
+            type: "number"
+            label: "THSAD"
+            label_ru: "THSAD"
+            tooltip: "The threshold of a block's difference; higher - more averaging."
+            tooltip_ru: "Порог различия блока; выше - больше усреднения."
+            default: 200
+            min: 100
+            max: 400
+            step: 1
+          - *noise
+          - *blksize
+
+      - id: dehaze_local_contrast
+        title: "Dehaze Local Contrast"
+        title_ru: "Дымка и локальный контраст"
+        about: "Clarity, no colour shift"
+        about_ru: "Ясность без сдвига цвета"
+        description: "Local contrast, clarity and haze removal on the luma only: no colour shift, no halos."
+        description_ru: "Локальный контраст, ясность и снятие дымки только по яркости: без сдвига цвета и ореолов."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: strength
+            type: "number"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "How much local contrast is added back; 0 - the picture as it was."
+            tooltip_ru: "Сколько локального контраста добавляется; 0 - картинка как была."
+            default: 1.0
+            min: 0.0
+            max: 2.0
+            step: 0.05
+          - id: radius
+            type: "number"
+            label: "Radius"
+            label_ru: "Радиус"
+            tooltip: "The size of the blur in pixels: larger - haze, smaller - clarity."
+            tooltip_ru: "Размер размытия в пикселях: больше - дымка, меньше - ясность."
+            default: 8
+            min: 1
+            max: 16
+            step: 1
+
+      - id: tivtc_ivtc
+        title: "TIVTC IVTC"
+        title_ru: "Обратный телесин TIVTC"
+        about: "NTSC 29.97 back to 23.976"
+        about_ru: "NTSC 29,97 обратно в 23,976"
+        description: "TIVTC takes the 3:2 pulldown out of telecined NTSC: 29.97 fps back to 23.976 fps progressive."
+        description_ru: "TIVTC убирает раскладку 3:2 из телесина NTSC: 29,97 к/с обратно в прогрессивные 23,976 к/с."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: pp
+            type: "number"
+            label: "TFM post-processing"
+            label_ru: "Постобработка TFM"
+            tooltip: "0 - off ... 7 - deinterlace whatever does not match."
+            tooltip_ru: "0 - выключена ... 7 - деинтерлейс всего, что не совпало."
+            default: 6
+            min: 0
+            max: 7
+            step: 1
+          - id: cycle
+            type: "number"
+            label: "Cycle"
+            label_ru: "Цикл"
+            tooltip: "The TDecimate cycle in frames; 5 for a standard NTSC telecine."
+            tooltip_ru: "Цикл TDecimate в кадрах; 5 для обычного телесина NTSC."
+            default: 5
+            min: 2
+            max: 25
+            step: 1
+          - id: rdrop
+            type: "number"
+            label: "Drop per cycle"
+            label_ru: "Выброс за цикл"
+            tooltip: "Frames dropped from each cycle; 1 of 5 for NTSC."
+            tooltip_ru: "Сколько кадров выбрасывается из цикла; 1 из 5 для NTSC."
+            default: 1
+            min: 1
+            max: 5
+            step: 1
+
+      - id: derainbow_decross
+        title: "Derainbow Decross"
+        title_ru: "Радуга и перекрёстные помехи"
+        about: "Composite rainbow and dot crawl"
+        about_ru: "Радуга и бегущие точки композита"
+        description: "Smoothing of the colour along the motion (MVTools): the rainbow, dot crawl and cross colour of NTSC composite go, the luma is not softened."
+        description_ru: "Сглаживание цвета вдоль движения (MVTools): радуга, бегущие точки и перекрёстные цветовые помехи композита NTSC уходят, яркость не смягчается."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: strength
+            type: "number"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "How strongly the colour is smoothed; 0 - as it was, 1 - fully."
+            tooltip_ru: "Насколько сглаживается цвет; 0 - как было, 1 - полностью."
+            default: 0.6
+            min: 0.0
+            max: 1.0
+            step: 0.05
+          - *blksize
+
+      - id: deblock_h264_artefacts
+        title: "Deblock H.264 Artefacts"
+        title_ru: "Блоки H.264"
+        about: "Over-compressed H.264 and MPEG"
+        about_ru: "Пережатые H.264 и MPEG"
+        description: "Deblock_QED of havsfunc, aware of edges: for over-compressed H.264 and MPEG - web rips, messenger re-encodes, weak broadcast."
+        description_ru: "Deblock_QED из havsfunc, бережёт края: для пережатых H.264 и MPEG - копий из сети, пересжатий мессенджеров, слабого эфира."
+        service: "system_core.services.vs_service:run_preset"
+        fields:
+          - id: quant1
+            type: "number"
+            label: "Quant 1"
+            label_ru: "Квант 1"
+            tooltip: "The strength on the edges of the blocks; higher - stronger."
+            tooltip_ru: "Сила на краях блоков; выше - сильнее."
+            pair: "quants"
+            pair_label: "Quants"
+            pair_label_ru: "Кванты"
+            default: 24
+            min: 16
+            max: 32
+            step: 1
+          - id: quant2
+            type: "number"
+            label: "Quant 2"
+            label_ru: "Квант 2"
+            tooltip: "The strength inside the blocks."
+            tooltip_ru: "Сила внутри блоков."
+            pair: "quants"
+            default: 26
+            min: 16
+            max: 32
+            step: 1
+          - id: aoffset
+            type: "number"
+            label: "Alpha offset"
+            label_ru: "Офсет альфа"
+            tooltip: "How sensitive the filter is to edges."
+            tooltip_ru: "Чувствительность фильтра к краям."
+            pair: "offsets"
+            pair_label: "Offsets"
+            pair_label_ru: "Офсеты"
+            default: 1
+            min: 0
+            max: 2
+            step: 1
+          - id: boffset
+            type: "number"
+            label: "Beta offset"
+            label_ru: "Офсет бета"
+            tooltip: "How sensitive the filter is inside the blocks."
+            tooltip_ru: "Чувствительность фильтра внутри блоков."
+            pair: "offsets"
+            default: 1
+            min: 0
+            max: 2
+            step: 1
+
+      - id: dpir_denoise
+        title: "DPIR Denoise"
+        title_ru: "Шумодав DPIR"
+        about: "A neural denoise of heavy noise"
+        about_ru: "Нейросетевой шумодав сильного шума"
+        description: "DPIR on vs-mlrt: heavy noise and high ISO go, the texture stays - where BM3D smears the picture."
+        description_ru: "DPIR на vs-mlrt: сильный шум и высокое ISO уходят, фактура остаётся - там, где BM3D замыливает картинку."
+        service: "system_core.services.vs_service:run_preset"
+        accel: "mlrt"
+        needs: "mlrt"
+        fields:
+          - id: strength
+            type: "number"
+            label: "Strength"
+            label_ru: "Сила"
+            tooltip: "The level of noise the network expects: 10 - medium, 15 - heavy, 25 - very heavy."
+            tooltip_ru: "Уровень шума, на который рассчитана сеть: 10 - средний, 15 - сильный, 25 - очень сильный."
+            default: 10.0
+            min: 1.0
+            max: 50.0
+            step: 0.5
+          - id: model
+            type: "radio"
+            choice_style: "buttons"
+            label: "Model"
+            label_ru: "Модель"
+            tooltip: "Colour - colour video; Blocks - the blocks of JPEG and MPEG as well; Grey - the brightness alone, the colour kept as it is."
+            tooltip_ru: "Цвет - цветное видео; Блоки - ещё и блоки JPEG и MPEG; Серый - только яркость, цвет остаётся как есть."
+            default: "drunet_color"
+            options:
+              - {value: "drunet_color", label: "Colour", label_ru: "Цвет"}
+              - {value: "drunet_gray", label: "Grey", label_ru: "Серый"}
+              - {value: "drunet_deblocking_color", label: "Blocks, colour", label_ru: "Блоки, цвет"}
+              - {value: "drunet_deblocking_gray", label: "Blocks, grey", label_ru: "Блоки, серый"}
+          - id: tile
+            type: "number"
+            label: "Tile"
+            label_ru: "Плитка"
+            tooltip: "The piece of the frame the network takes at a time, in pixels: smaller - less video memory, slower."
+            tooltip_ru: "Кусок кадра, который сеть берёт за раз, в пикселях: меньше - меньше видеопамяти, медленнее."
+            default: 384
+            min: 256
+            max: 512
+            step: 16
+
+      - id: vsmlrt_realesrgan_2x
+        title: "Real-ESRGAN 2x"
+        title_ru: "Real-ESRGAN 2x"
+        about: "A neural upscale, twice the size"
+        about_ru: "Нейросетевое увеличение вдвое"
+        description: "Real-ESRGAN on vs-mlrt: drawn animation twice the size, its lines clean and sharp; TensorRT on NVIDIA."
+        description_ru: "Real-ESRGAN на vs-mlrt: рисованная анимация вдвое, с чистыми чёткими линиями; TensorRT на NVIDIA."
+        service: "system_core.services.vs_service:run_preset"
+        accel: "mlrt"
+        needs: "mlrt"
+        fields:
+          - id: model
+            type: "radio"
+            choice_style: "buttons"
+            label: "Model"
+            label_ru: "Модель"
+            tooltip: "Real-ESRGAN in vs-mlrt has models for drawn animation alone: Anime is the lightest, AnimeJaNai 1-3 go from lighter to stronger. Live action they can over-sharpen."
+            tooltip_ru: "У Real-ESRGAN в vs-mlrt модели только для рисованной анимации: Аниме - самая лёгкая, AnimeJaNai 1-3 - от лёгкой к сильной. Живое видео они могут пережать по резкости."
+            default: "animevideov3"
+            options:
+              - {value: "animevideov3", label: "Anime", label_ru: "Аниме"}
+              - {value: "animejanaiV2-L1", label: "AnimeJaNai 1", label_ru: "AnimeJaNai 1"}
+              - {value: "animejanaiV2-L2", label: "AnimeJaNai 2", label_ru: "AnimeJaNai 2"}
+              - {value: "animejanaiV2-L3", label: "AnimeJaNai 3", label_ru: "AnimeJaNai 3"}
+          - id: tile
+            type: "number"
+            label: "Tile"
+            label_ru: "Плитка"
+            tooltip: "The piece of the frame the network takes at a time, in pixels: smaller - less video memory, slower."
+            tooltip_ru: "Кусок кадра, который сеть берёт за раз, в пикселях: меньше - меньше видеопамяти, медленнее."
+            default: 384
+            min: 256
+            max: 768
+            step: 16
+          - id: tile_pad
+            type: "number"
+            label: "Tile overlap"
+            label_ru: "Перекрытие плиток"
+            tooltip: "How far the pieces overlap, in pixels, so that their seams do not show."
+            tooltip_ru: "На сколько пикселей куски заходят друг на друга, чтобы не было видно швов."
+            default: 16
+            min: 4
+            max: 64
+            step: 1
+
+      - id: soft_hd_rebuild_2x
+        title: "Soft HD Rebuild 2x"
+        title_ru: "Пересборка мягкого HD 2x"
+        about: "Soft HD rebuilt at twice the size"
+        about_ru: "Мягкое HD, пересобранное вдвое"
+        description: "A spectral cleanup, then Real-ESRGAN: soft and undersampled HD rebuilt at twice the size without its noise blown up."
+        description_ru: "Спектральная чистка, затем Real-ESRGAN: мягкое и недоразрешённое HD пересобирается вдвое без раздутого шума."
+        service: "system_core.services.vs_service:run_preset"
+        accel: "mlrt"
+        needs: "mlrt"
+        fields:
+          - id: rebuild
+            type: "radio"
+            choice_style: "buttons"
+            label: "Rebuild"
+            label_ru: "Пересборка"
+            tooltip: "How much detail comes back: Careful - no halos, Strong - for very soft sources."
+            tooltip_ru: "Сколько детали возвращается: Бережно - без ореолов, Сильно - для очень мягких исходников."
+            default: "balanced"
+            options:
+              - {value: "conservative", label: "Careful", label_ru: "Бережно"}
+              - {value: "balanced", label: "Balanced", label_ru: "Сбалансированно"}
+              - {value: "aggressive", label: "Strong", label_ru: "Сильно"}
+          - id: cleanup
+            type: "radio"
+            choice_style: "buttons"
+            label: "Cleanup"
+            label_ru: "Чистка"
+            tooltip: "The cleanup before the network, so that it does not enlarge the noise and the blocks."
+            tooltip_ru: "Чистка перед сетью, чтобы она не увеличивала шум и блоки."
+            default: "medium"
+            options:
+              - {value: "light", label: "Light", label_ru: "Слабо"}
+              - {value: "medium", label: "Medium", label_ru: "Средне"}
+              - {value: "strong", label: "Strong", label_ru: "Сильно"}
+          - id: model
+            type: "radio"
+            choice_style: "buttons"
+            label: "Model"
+            label_ru: "Модель"
+            tooltip: "Real-ESRGAN in vs-mlrt has models for drawn animation alone: Anime is the lightest, AnimeJaNai 1-3 go from lighter to stronger. Live action they can over-sharpen."
+            tooltip_ru: "У Real-ESRGAN в vs-mlrt модели только для рисованной анимации: Аниме - самая лёгкая, AnimeJaNai 1-3 - от лёгкой к сильной. Живое видео они могут пережать по резкости."
+            default: "animevideov3"
+            options:
+              - {value: "animevideov3", label: "Anime", label_ru: "Аниме"}
+              - {value: "animejanaiV2-L1", label: "AnimeJaNai 1", label_ru: "AnimeJaNai 1"}
+              - {value: "animejanaiV2-L2", label: "AnimeJaNai 2", label_ru: "AnimeJaNai 2"}
+              - {value: "animejanaiV2-L3", label: "AnimeJaNai 3", label_ru: "AnimeJaNai 3"}
+          - id: tile
+            type: "number"
+            label: "Tile"
+            label_ru: "Плитка"
+            tooltip: "The piece of the frame the network takes at a time, in pixels: smaller - less video memory, slower."
+            tooltip_ru: "Кусок кадра, который сеть берёт за раз, в пикселях: меньше - меньше видеопамяти, медленнее."
+            default: 384
+            min: 256
+            max: 768
+            step: 16
+          - id: tile_pad
+            type: "number"
+            label: "Tile overlap"
+            label_ru: "Перекрытие плиток"
+            tooltip: "How far the pieces overlap, in pixels, so that their seams do not show."
+            tooltip_ru: "На сколько пикселей куски заходят друг на друга, чтобы не было видно швов."
+            default: 16
+            min: 4
+            max: 64
+            step: 1
+
+  # ==================================================================================================================
+  - id: profiles
+    title: "PROFILES"
+    title_ru: "ПРОФИЛИ"
+    fields: *machine
+    children:
+      - id: profile_run
+        title: "Run a profile"
+        title_ru: "Запустить профиль"
+        about: "A saved preset with its settings"
+        about_ru: "Сохранённый пресет с его настройками"
+        description: "A profile - a preset with its settings and its encoder, saved under a name - run on a file or on a whole folder."
+        description_ru: "Профиль - пресет с настройками и кодером, сохранённый под именем, - запускается на файле или на всей папке."
+        service: "system_core.services.vs_service:profile_run"
+        accel: "any"
+        fields:
+          - id: profile
+            type: "radio"
+            choice_style: "buttons"
+            refresh_on_change: true
+            label: "Profile"
+            label_ru: "Профиль"
+            tooltip: "The profiles of config\\profiles. Choosing one sets its encoder on the cards."
+            tooltip_ru: "Профили из config\\profiles. Выбор профиля ставит его кодер на карточки."
+            options_source: "system_core.services.vs_service:profile_options"
+
+      - id: profile_save
+        title: "Save a profile"
+        title_ru: "Сохранить профиль"
+        about: "The form of a preset under a name"
+        about_ru: "Форма пресета под именем"
+        description: "The settings of a preset and the encoder of the cards saved as a profile in config\\profiles."
+        description_ru: "Настройки пресета и кодер карточек сохраняются профилем в config\\profiles."
+        service: "system_core.services.vs_service:profile_save"
+        fields:
+          - id: profile_name
+            type: "text"
+            required: true
+            label: "Name"
+            label_ru: "Имя"
+            tooltip: "The name of the profile: Latin letters, digits, - and _."
+            tooltip_ru: "Имя профиля: латинские буквы, цифры, - и _."
+            default: ""
+          - id: profile_preset
+            type: "radio"
+            hidden: true
+            required: true
+            label: "Preset"
+            label_ru: "Пресет"
+            tooltip: "The preset the profile runs."
+            tooltip_ru: "Пресет, который запускает профиль."
+            options_source: "system_core.services.vs_service:preset_options"
+          - id: profile_values
+            type: "text"
+            hidden: true
+            label: "Settings of the preset"
+            label_ru: "Настройки пресета"
+            tooltip: "The fields of the preset as JSON: {\"strength\": \"light\"}. A field not named takes its default."
+            tooltip_ru: "Поля пресета в JSON: {\"strength\": \"light\"}. Поле, которого нет, берёт своё умолчание."
+            default: "{}"
+          - id: profile_description
+            type: "text"
+            label: "Description"
+            label_ru: "Описание"
+            tooltip: "What the profile is for, a line."
+            tooltip_ru: "Для чего профиль, одной строкой."
+            default: ""
+
+# The operations of SETUP and SERVICE in the header, and of DETAILS.
+operations:
+  - id: doctor
+    title: "Doctor"
+    title_ru: "Доктор"
+    description: "Checks the whole engine: the two Pythons, VapourSynth, every plugin, FFmpeg, BM3D on the video card."
+    description_ru: "Проверяет весь движок: оба Python, VapourSynth, каждый плагин, FFmpeg, BM3D на видеокарте."
+    service: "system_core.services.vs_service:doctor"
+
+  - id: probe_source
+    title: "Source info"
+    title_ru: "Сведения об Источнике"
+    description: "What ffprobe knows of every video of the Source: size, frame rate, length, codec, range, colour."
+    description_ru: "Что ffprobe знает о каждом видео Источника: размер, частота, длина, кодек, диапазон, цвет."
+    service: "system_core.services.vs_service:probe_source"
+
+  - id: source_list
+    title: "File list"
+    title_ru: "Список файлов"
+    description: "The videos of the Source the next run takes, with their folders."
+    description_ru: "Видео Источника, которые возьмёт следующий прогон, с их папками."
+    service: "system_core.services.vs_service:source_list"
+
+  - id: hardware_capabilities
+    title: "Hardware capabilities"
+    title_ru: "Возможности оборудования"
+    description: "Short FFmpeg encodes with NVENC, QuickSync and AMF: which hardware encoders work on this machine."
+    description_ru: "Короткие кодирования FFmpeg через NVENC, QuickSync и AMF: какие аппаратные кодеры работают на этой машине."
+    service: "system_core.services.vs_service:hardware_capabilities"
+
+  - id: bench_presets
+    title: "Check every preset"
+    title_ru: "Проверка всех пресетов"
+    description: "Every preset on a test clip, a frame each: what runs on this machine and how fast."
+    description_ru: "Каждый пресет на тестовом ролике по кадру: что работает на этой машине и как быстро."
+    service: "system_core.services.vs_service:bench_presets"
+    fields:
+      - id: frames
+        type: "number"
+        label: "Frames"
+        label_ru: "Кадров"
+        tooltip: "How many frames every preset renders."
+        tooltip_ru: "Сколько кадров считает каждый пресет."
+        default: 1
+        min: 1
+        max: 100
+        step: 1
+
+  - id: bench_gpu
+    title: "BM3D: video card or CPU"
+    title_ru: "BM3D: видеокарта или процессор"
+    description: "BM3D through Vulkan (bm3dvk) against BM3D on the CPU (bm3d) on the first video of the Source: frames a second of each."
+    description_ru: "BM3D через Vulkan (bm3dvk) против BM3D на процессоре (bm3d) на первом видео Источника: кадров в секунду у каждого."
+    service: "system_core.services.vs_service:bench_gpu"
+    fields:
+      - id: frames
+        type: "number"
+        label: "Frames"
+        label_ru: "Кадров"
+        tooltip: "How many frames each side renders."
+        tooltip_ru: "Сколько кадров считает каждая сторона."
+        default: 24
+        min: 1
+        max: 500
+        step: 1
+
+  - id: install_vapoursynth
+    title: "Install VapourSynth"
+    title_ru: "Установить VapourSynth"
+    description: "The newest stable portable VapourSynth into system_core\\vapoursynth (step 10 of the builder)."
+    description_ru: "Самый новый стабильный портативный VapourSynth в system_core\\vapoursynth (шаг 10 сборщика)."
+    service: "system_core.services.vs_service:install_vapoursynth"
+
+  - id: install_vs_plugins
+    title: "Install the plugins"
+    title_ru: "Установить плагины"
+    description: "The plugins of install\\vs_plugins.json into VapourSynth (step 11 of the builder); the core is not moved."
+    description_ru: "Плагины из install\\vs_plugins.json в VapourSynth (шаг 11 сборщика); ядро не сдвигается."
+    service: "system_core.services.vs_service:install_vs_plugins"
+
+  - id: install_ffmpeg
+    title: "Install FFmpeg"
+    title_ru: "Установить FFmpeg"
+    description: "FFmpeg of Gyan into Tools\\ffmpeg by the NVIDIA driver: the newest stable, 9.0.2 at least, without an NVIDIA card and from the LTS driver 610.88; below it 8.0.1 (570-610.87) or 7.1 so that NVENC works, and not every operation is possible (step 13 of the builder)."
+    description_ru: "FFmpeg от Gyan в Tools\\ffmpeg по драйверу NVIDIA: самая новая стабильная, не ниже 9.0.2, без карты NVIDIA и с LTS-драйвером 610.88 и новее; ниже него 8.0.1 (570-610.87) или 7.1, чтобы работал NVENC, и доступны не все операции (шаг 13 сборщика)."
+    service: "system_core.services.vs_service:install_ffmpeg"
+
+  - id: install_mlrt
+    title: "Install MLRT"
+    title_ru: "Установить MLRT"
+    description: "vs-mlrt - TensorRT, ONNX Runtime and the models - into VapourSynth, trimmed to this video card: the neural presets DPIR, Real-ESRGAN and Soft HD Rebuild. Offered at the first start and in SETUP when an NVIDIA RTX card is found; the builder does not install it."
+    description_ru: "vs-mlrt - TensorRT, ONNX Runtime и модели - в VapourSynth, под эту видеокарту: нейросетевые пресеты DPIR, Real-ESRGAN и Пересборка мягкого HD. Предлагается при первом запуске и в SETUP, когда найдена видеокарта NVIDIA RTX; сборщик его не ставит."
+    service: "system_core.services.vs_service:install_mlrt"
+
+  - id: remove_vapoursynth
+    kind: "dangerous"
+    title: "Remove VapourSynth"
+    title_ru: "Удалить VapourSynth"
+    description: "The folder of the engine, system_core\\vapoursynth, with its plugins and MLRT, goes to the Recycle Bin (step 14 of the builder)."
+    description_ru: "Папка движка system_core\\vapoursynth с плагинами и MLRT уходит в Корзину (шаг 14 сборщика)."
+    service: "system_core.services.vs_service:remove_vapoursynth"

@@ -13,41 +13,26 @@ for %%A in (%*) do if /I "%%~A"=="/NOPAUSE" set "NO_PAUSE=1"
 set "PS1_FILE=%SCRIPT_DIR%\Install-VS-Plugins.ps1"
 set "PS_EXE="
 
-if exist "%ROOT%\system_core\powershell\pwsh.exe" set "PS_EXE=%ROOT%\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+if exist "%ROOT%\App\AudionPs.exe" set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
 if not defined PS_EXE goto ERR_NOPS
 if not exist "%PS1_FILE%" goto ERR_NOPS1
 
-rem Default: install all plugins INCLUDING bm3dcuda. The DLL load on a non-NVIDIA
-rem machine fails silently inside VS and presets fall back via hasattr-check.
-rem Pass /NO-CUDA (or legacy /CUDA is accepted but does nothing - it is the
-rem default now) to skip the bm3dcuda plugin entirely.
 rem   /NOPAUSE         - non-interactive mode for GUI / automation callers
-set "OPT_NO_CUDA="
-:PARSE
-if "%~1"=="" goto SHOW
-if /I "%~1"=="/NO-CUDA" ( set "OPT_NO_CUDA=-NoCUDA" & shift & goto PARSE )
-if /I "%~1"=="/NOCUDA"  ( set "OPT_NO_CUDA=-NoCUDA" & shift & goto PARSE )
-if /I "%~1"=="/CUDA"     ( shift & goto PARSE )
-if /I "%~1"=="/WITHCUDA" ( shift & goto PARSE )
-if /I "%~1"=="/NOPAUSE"  ( set "NO_PAUSE=1" & shift & goto PARSE )
-shift
-goto PARSE
+rem BM3D on the GPU of any vendor goes through Vulkan (bm3dvk), so there is no CUDA switch.
 
-:SHOW
 echo ======================================================================
 echo   AUDION VS ENGINE - INSTALL VS PLUGINS (CMD wrapper)
 echo ======================================================================
 echo PS engine: %PS_EXE%
 echo Project:   %ROOT%
-if not defined OPT_NO_CUDA echo CUDA path: ON  (bm3dcuda included; harmless on non-NVIDIA)
-if defined OPT_NO_CUDA     echo CUDA path: OFF (opt-out via /NO-CUDA)
 if defined NO_PAUSE        echo Noninteractive: ON
 echo.
 
-"%PS_EXE%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PS1_FILE%" -ProjectRoot "%ROOT%" %OPT_NO_CUDA%
+"%PS_EXE%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PS1_FILE%" -ProjectRoot "%ROOT%"
 set "RC=%ERRORLEVEL%"
 echo.
 if "%RC%"=="0" (

@@ -2,8 +2,7 @@
 # Preset: polaroid
 # Stack:  Heavy halation -> warm gamma push -> mild desaturation -> edge vignette
 # Goal:   1970s-80s Polaroid SX-70 / Spectra feel. Soft veiled highlights, warm
-#         creamy midtones, slight teal-shifted shadows, and a strong dark edge
-#         vignette that fades the corners. Distinct from Super 8 (Polaroid is
+#         creamy midtones and a strong dark edge vignette that fades the corners. Distinct from Super 8 (Polaroid is
 #         softer, less grainy, more "candy-bloom").
 #
 #         What this gives you that Adobe / DaVinci do NOT:
@@ -86,5 +85,5 @@ darker = core.std.Expr([warm], [f"x 1.0 {VIGNETTE * INTENSITY} - * 0 max", "x", 
 out = core.std.MaskedMerge(darker, warm, radial, planes=[0])
 
 out = core.fmtc.bitdepth(out, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

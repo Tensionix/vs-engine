@@ -31,7 +31,10 @@ core = vs.core
 
 # havsfunc / mvsfunc are pure-Python "scripts" installed into vs-scripts/.
 # vsrepo lays them under Lib/site-packages/, so the regular import path works.
-import havsfunc as haf
+# audion_lib.havsfunc() is havsfunc itself, or - where focus2 (API 3) does not load - havsfunc with its TemporalSoften2
+# calls on zsmooth.TemporalSoften.
+import audion_lib as al
+haf = al.havsfunc()
 
 INPUT       = os.environ["AUDION_VS_INPUT"]
 FIELD_ORDER = os.environ.get("AUDION_VS_FIELD_ORDER", "tff").lower()
@@ -39,14 +42,7 @@ QPRESET     = os.environ.get("AUDION_VS_PRESET", "Medium")
 OUTPUT_FPS  = os.environ.get("AUDION_VS_OUTPUT_FPS", "single").lower()
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-src = _load(INPUT)
+src = al.load_source(INPUT)
 
 # Tag field order on the clip for QTGMC. _FieldBased: 1=BFF, 2=TFF (per VS spec).
 fieldbased = 2 if FIELD_ORDER == "tff" else 1
@@ -68,5 +64,5 @@ out = haf.QTGMC(
 )
 
 # Tag output as progressive Rec.709 (QTGMC clears _FieldBased to 0).
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1, _FieldBased=0)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range(), _FieldBased=0)
 out.set_output()

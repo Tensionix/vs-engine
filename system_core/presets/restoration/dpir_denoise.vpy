@@ -1,5 +1,5 @@
 # Audion VS Engine -- Restoration palette
-# Preset: dpir_denoise (Phase 18.B-ML)
+# Preset: dpir_denoise
 # Stack:  vsmlrt.DPIR (TensorRT -> DirectML -> CPU) -> ML-denoise
 # Goal:   Heavy-noise / high-ISO ML denoise. DPIR is a deep network trained
 #         on a wide variety of noise types and PRESERVES skin texture and
@@ -28,7 +28,8 @@
 #                       "drunet_deblocking_color" -- specifically for
 #                                                    JPEG / MPEG block artifacts
 #   AUDION_VS_TILE      int 256 / 384 / 512 -- input tile size.  default 384
-#   AUDION_VS_BACKEND   "trt" | "ort_dml" | "ort_cpu" | "auto"  default auto
+#   AUDION_VS_BACKEND   "trt" | "ort_dml" | "ort_cpu" | "auto"  default auto;
+#                       the service sets it from PROCESSING, it is no field of the form
 #
 import os
 import vapoursynth as vs
@@ -46,12 +47,6 @@ BACKEND  = os.environ.get("AUDION_VS_BACKEND", "auto").lower()
 # Clamp sigma to a sane range
 STRENGTH = max(1.0, min(50.0, STRENGTH))
 
-
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
 
 
 def _resolve_backend(tag: str):
@@ -100,8 +95,8 @@ else:
     backend = _resolve_backend(BACKEND)
     picked = BACKEND
 
-src = _load(INPUT)
-src = core.std.SetFrameProps(src, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+src = al.load_source(INPUT)
+src = al.tag_bt709(src)
 
 # DPIR color models work in RGB float; gray works in GRAY float
 is_gray = "gray" in MODEL
@@ -125,13 +120,13 @@ denoised = vsmlrt.DPIR(
 # Back to YUV420P10
 if is_gray:
     # If input was gray, recombine with original chroma so output is still YUV
-    yuv_src = core.resize.Bicubic(src, format=vs.YUV420P10, matrix_s="709")
+    yuv_src = core.resize.Bicubic(src, format=vs.YUV420P10, matrix_s="709", range_s=al.range_name())
     out = core.std.ShufflePlanes(
-        [core.resize.Bicubic(denoised, format=vs.GRAY16, range_in=1, range=1), yuv_src, yuv_src],
+        [core.resize.Bicubic(denoised, format=vs.GRAY16, range_in_s="full", range_s=al.range_name()), yuv_src, yuv_src],
         [0, 1, 2], vs.YUV
     )
 else:
-    out = core.resize.Bicubic(denoised, format=vs.YUV420P10, matrix_s="709")
+    out = core.resize.Bicubic(denoised, format=vs.YUV420P10, matrix_s="709", range_s=al.range_name())
 
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

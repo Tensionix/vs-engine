@@ -4,8 +4,9 @@
 
 .DESCRIPTION
   Phase 18.B-ML installer. Brings ONNX inference into VapourSynth so we can
-  ship Real-ESRGAN super-resolution, RIFE frame interpolation and DPIR
-  ML-denoise as preset scripts.
+  ship Real-ESRGAN super-resolution and DPIR ML-denoise as preset scripts.
+  RIFE frame interpolation is out: on TensorRT its new frames come out wrong
+  on an RTX 5070 (docs\DECISIONS_EN.md, 20.10.2026).
 
   We bundle the FULL TensorRT package -- biggest, fastest, all-batteries:
 

@@ -1,253 +1,355 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+chcp 65001 >nul
 
-title Audion VS Engine Full - project cleanup
+title Audion VS Engine - Cleanup
 
 set "BASE_DIR=%~dp0"
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
 cd /d "%BASE_DIR%" || exit /b 1
 
+set "BASE_PREFIX=%BASE_DIR%\"
+set "BASE_PREFIX_WORK=%BASE_PREFIX%"
+set /a BASE_PREFIX_LEN=0
+:base_prefix_len_loop
+if defined BASE_PREFIX_WORK (
+  set "BASE_PREFIX_WORK=!BASE_PREFIX_WORK:~1!"
+  set /a BASE_PREFIX_LEN+=1
+  goto base_prefix_len_loop
+)
+set "BASE_PREFIX_WORK="
+
+set "ERROR_COUNT=0"
 set "AUTO_YES=0"
-set "NO_PAUSE=0"
+set "DRY_RUN=0"
+
 for %%A in (%*) do (
   if /I "%%~A"=="/Y" set "AUTO_YES=1"
   if /I "%%~A"=="/YES" set "AUTO_YES=1"
+  if /I "%%~A"=="-Y" set "AUTO_YES=1"
+  if /I "%%~A"=="-YES" set "AUTO_YES=1"
   if /I "%%~A"=="--yes" set "AUTO_YES=1"
-  if /I "%%~A"=="/NOPAUSE" set "NO_PAUSE=1"
-  if /I "%%~A"=="--no-pause" set "NO_PAUSE=1"
+  if /I "%%~A"=="/DRYRUN" set "DRY_RUN=1"
+  if /I "%%~A"=="/DRY-RUN" set "DRY_RUN=1"
+  if /I "%%~A"=="--dry-run" set "DRY_RUN=1"
+  if /I "%%~A"=="/?" goto usage
+  if /I "%%~A"=="-h" goto usage
+  if /I "%%~A"=="--help" goto usage
+)
+
+if not exist "%BASE_DIR%\system_core\cli.py" (
+  echo [ERROR] Project marker not found:
+  echo %BASE_DIR%\system_core\cli.py
+  echo.
+  echo Cleanup aborted.
+  call :WAIT_KEY
+  exit /b 1
+)
+
+if not exist "%BASE_DIR%\config\tool_manifest.yaml" (
+  echo [ERROR] Project marker not found:
+  echo %BASE_DIR%\config\tool_manifest.yaml
+  echo.
+  echo Cleanup aborted.
+  call :WAIT_KEY
+  exit /b 1
 )
 
 echo ======================================================================
-echo   AUDION VS ENGINE FULL - PROJECT CLEANUP
+echo   AUDION VS ENGINE - LEAN REBUILD CLEANUP
 echo ======================================================================
-echo Root: %BASE_DIR%
+echo Root:
+echo   %BASE_DIR%
 echo.
-echo This prepares the lightweight source-only tree for a fresh LEAN rebuild.
-echo It keeps scripts, docs, git service files, config folders, GUI, engine
-echo sources and all preset scripts, including MLRT preset definitions.
-echo It removes installed portable runtimes, FFmpeg, VapourSynth, MLRT runtime
-echo payload/models, downloaded installer caches, smoke artifacts and generated
-echo media/log/release state.
+echo This script returns the project to a small source-only / LEAN state.
+echo It keeps the presets, the profiles, documentation, permanent configs, licenses and the built window in App\.
+echo It removes generated workspace content, build/runtime payloads, downloaded tool payloads and caches:
+echo   - input, output, logs, report contents
+echo   - runtime, wheelhouse, install\download contents, including cached 7-Zip distributives
+echo   - system_core\vapoursynth: the engine with its plugins and MLRT; steps 10, 11, 15 of the builder bring it back
+echo   - Tools\ffmpeg contents
+echo   - the state of the window and the machine: window settings, path history, the terminal history, the caches of
+echo     components and hardware
+echo   - root/runtime/system_core cache folders: .runtime, _runtime, ._runtime, __pycache__
+echo   - root pytest/mypy/ruff caches, root build/dist folders
+echo   - system_core\fzf.exe: step 03 of the builder brings it back
+echo   - Source\bin, Source\obj, Source\Ps\bin, Source\Ps\obj: what a build of the window leaves; App\ stays
+echo   - work: what a build of Start.exe leaves; install\*.orig: copies a patch left behind
+echo   - system_core\7zip bootstrap extractor contents
+echo   - transient installer temp folders in system_core
+echo   - generated files inside managed cleanup folders
 echo.
-echo Removed heavy/runtime trees:
-echo   runtime\                     embedded GUI/orchestrator Python
-echo   wheelhouse\                  Python package cache
-echo   Tools\ffmpeg\                portable FFmpeg binaries/docs
-echo   system_core\vapoursynth\     VS-host, VS plugins, vs-mlrt runtime/models
-echo   system_core\powershell\      portable PowerShell runtime
-echo   system_core\7zip\            bootstrapped 7-Zip helper binaries
-echo   install\download\            installer download cache
+echo Protected source: system_core source and presets, config, config\profiles, docs, launchers, install scripts, licenses.
 echo.
-echo Cleared generated state:
-echo   input\ output\ logs\ report\ release\ data\ ._runtime\
-echo   root *.log, api_key*.txt, __pycache__, *.pyc, *.pyo
-echo   dev caches: .pytest_cache, .mypy_cache, .ruff_cache, htmlcov
-echo   scratch files: *.tmp, *.temp, *.bak, *.old, *.orig
+if "%DRY_RUN%"=="1" echo Dry-run: ON. Nothing will be deleted.
 echo.
-echo Kept:
-echo   *.cmd, *.ps1, *.py, *.vpy, docs, config\, config\profiles\
-echo   install\Install-VS-mlrt.* and all MLRT preset source files
-echo   .gitignore, and the empty service folders created by install\init_folders.cmd
-echo.
-echo IMPORTANT: after this cleanup, run the installer/builder again to rebuild
-echo the portable stack for the target hardware, e.g. Intel LEAN.
-echo.
+
 if "%AUTO_YES%"=="1" goto clean
+
+:ask
 choice /C YNQ /N /M "Proceed with project cleanup? [Y/N/Q]: "
 if errorlevel 3 goto quit
 if errorlevel 2 goto cancelled
 if errorlevel 1 goto clean
-goto cancelled
+goto ask
 
 :clean
-set "REMOVED=0"
+echo.
+echo [CLEAN] Starting project cleanup...
+echo.
 
-echo [INFO] Stopping running project binaries before cleanup...
-call :STOP_PROJECT_PROCESSES
+call :RemoveDir "%BASE_DIR%\.runtime"
+call :RemoveDir "%BASE_DIR%\_runtime"
+call :RemoveDir "%BASE_DIR%\._runtime"
+call :RemoveDir "%BASE_DIR%\__pycache__"
+call :RemoveDir "%BASE_DIR%\.pytest_cache"
+call :RemoveDir "%BASE_DIR%\.mypy_cache"
+call :RemoveDir "%BASE_DIR%\.ruff_cache"
+call :RemoveDir "%BASE_DIR%\.cache"
+call :RemoveDir "%BASE_DIR%\htmlcov"
+call :RemoveDir "%BASE_DIR%\system_core\__pycache__"
+call :RemoveDir "%BASE_DIR%\system_core\core\__pycache__"
+call :RemoveDir "%BASE_DIR%\system_core\services\__pycache__"
+call :RemoveDir "%BASE_DIR%\system_core\engine\__pycache__"
+call :RemoveDir "%BASE_DIR%\system_core\presets\__pycache__"
+call :RemoveDir "%BASE_DIR%\install\__pycache__"
+call :RemoveDir "%BASE_DIR%\tests\__pycache__"
 
-call :REMOVE_TREE "%BASE_DIR%\runtime" "runtime"
-call :REMOVE_TREE "%BASE_DIR%\wheelhouse" "wheelhouse"
-call :REMOVE_TREE "%BASE_DIR%\._runtime" "._runtime"
-call :REMOVE_TREE "%BASE_DIR%\data" "data"
-call :REMOVE_TREE "%BASE_DIR%\input" "input"
-call :REMOVE_TREE "%BASE_DIR%\output" "output"
-call :REMOVE_TREE "%BASE_DIR%\logs" "logs"
-call :REMOVE_TREE "%BASE_DIR%\report" "report"
-call :REMOVE_TREE "%BASE_DIR%\release" "release"
-call :REMOVE_TREE "%BASE_DIR%\install\download" "install\download"
+call :ClearDir "%BASE_DIR%\input"
+call :ClearDir "%BASE_DIR%\output"
+call :ClearDir "%BASE_DIR%\logs"
+call :ClearDir "%BASE_DIR%\report"
+call :ClearDir "%BASE_DIR%\runtime"
+call :ClearDir "%BASE_DIR%\wheelhouse"
+call :RemoveFile "%BASE_DIR%\install\download\7zr.exe"
+call :RemoveFilesInDirByPattern "%BASE_DIR%\install\download" "7z*.7z"
+call :RemoveFilesInDirByPattern "%BASE_DIR%\install\download" "7zip*.7z"
+call :ClearDir "%BASE_DIR%\install\download"
+call :RemoveDir "%BASE_DIR%\system_core\7zip"
+call :RemoveDir "%BASE_DIR%\system_core\vapoursynth"
+call :ClearDir "%BASE_DIR%\Tools\ffmpeg"
+call :RemoveFilesInDirByPattern "%BASE_DIR%\Tools" "ffmpeg-*-source.tar.gz"
 
-call :REMOVE_TREE "%BASE_DIR%\Tools\ffmpeg" "Tools\ffmpeg"
-call :REMOVE_FILE "%BASE_DIR%\Tools\ffmpeg-*-source.tar.gz" "Tools\ffmpeg-*-source.tar.gz"
-call :REMOVE_TREE "%BASE_DIR%\system_core\vapoursynth" "system_core\vapoursynth"
-call :REMOVE_TREE "%BASE_DIR%\system_core\powershell" "system_core\powershell"
-call :REMOVE_TREE "%BASE_DIR%\system_core\7zip" "system_core\7zip"
-call :REMOVE_TREE "%BASE_DIR%\system_core\_ffmpeg_tmp" "system_core\_ffmpeg_tmp"
-call :REMOVE_TREE "%BASE_DIR%\system_core\_ffmpeg_btbn_tmp" "system_core\_ffmpeg_btbn_tmp"
-call :REMOVE_TREE "%BASE_DIR%\system_core\_fzf_tmp" "system_core\_fzf_tmp"
-call :REMOVE_TREE "%BASE_DIR%\system_core\_pwsh_tmp" "system_core\_pwsh_tmp"
-call :REMOVE_TREE "%BASE_DIR%\system_core\_powershell_tmp" "system_core\_powershell_tmp"
-
-call :REMOVE_TREE "%BASE_DIR%\.pytest_cache" ".pytest_cache"
-call :REMOVE_TREE "%BASE_DIR%\.mypy_cache" ".mypy_cache"
-call :REMOVE_TREE "%BASE_DIR%\.ruff_cache" ".ruff_cache"
-call :REMOVE_TREE "%BASE_DIR%\.cache" ".cache"
-call :REMOVE_TREE "%BASE_DIR%\htmlcov" "htmlcov"
-
-call :REMOVE_FILE "%BASE_DIR%\system_core\fzf.exe" "system_core\fzf.exe"
-call :REMOVE_FILE "%BASE_DIR%\api_key.txt" "api_key.txt"
-call :REMOVE_FILE "%BASE_DIR%\api_key_openai.txt" "api_key_openai.txt"
-for %%F in ("%BASE_DIR%\*.log") do (
-  if exist "%%~fF" (
-    del /f /q "%%~fF" >nul 2>nul
-    if not exist "%%~fF" (
-      set /a REMOVED+=1
-      echo [OK] Removed %%~nxF
-    ) else (
-      echo [WARN] Could not remove %%~fF
-    )
-  )
-)
-
-for /d /r "%BASE_DIR%" %%D in (__pycache__) do (
-  if exist "%%~fD\" (
-    rd /s /q "%%~fD" >nul 2>nul
-    if not exist "%%~fD\" set /a REMOVED+=1
-  )
-)
-echo [OK] Cleared __pycache__ folders
-
-for /r "%BASE_DIR%" %%F in (*.pyc *.pyo) do (
-  if exist "%%~fF" (
-    del /f /q "%%~fF" >nul 2>nul
-    if not exist "%%~fF" set /a REMOVED+=1
-  )
-)
-echo [OK] Cleared Python bytecode files
-
-for /r "%BASE_DIR%" %%F in (*.tmp *.temp *.bak *.old *.orig .coverage coverage.xml) do (
-  if exist "%%~fF" (
-    del /f /q "%%~fF" >nul 2>nul
-    if not exist "%%~fF" set /a REMOVED+=1
-  )
-)
-echo [OK] Cleared scratch/test report files
+call :RemoveDir "%BASE_DIR%\build"
+call :RemoveDir "%BASE_DIR%\dist"
+call :RemoveDir "%BASE_DIR%\work"
+call :RemoveFilesInDirByPattern "%BASE_DIR%\install" "*.orig"
+call :RemoveDir "%BASE_DIR%\system_core\_ffmpeg_tmp"
+call :RemoveDir "%BASE_DIR%\system_core\_ffmpeg_btbn_tmp"
+call :RemoveDir "%BASE_DIR%\system_core\_7zip_tmp"
+call :RemoveDir "%BASE_DIR%\system_core\_fzf_tmp"
+call :RemoveFile "%BASE_DIR%\system_core\fzf.exe"
+call :RemoveFile "%BASE_DIR%\config\hardware_capabilities_cache.json"
+call :RemoveFile "%BASE_DIR%\config\components_cache.json"
+call :RemoveFile "%BASE_DIR%\config\window_settings.json"
+call :RemoveFile "%BASE_DIR%\config\path_history.json"
+call :RemoveFile "%BASE_DIR%\config\terminal_commands.json"
+call :RemoveDir "%BASE_DIR%\Source\bin"
+call :RemoveDir "%BASE_DIR%\Source\obj"
+call :RemoveDir "%BASE_DIR%\Source\Ps\bin"
+call :RemoveDir "%BASE_DIR%\Source\Ps\obj"
 
 if exist "%BASE_DIR%\install\init_folders.cmd" (
-  call "%BASE_DIR%\install\init_folders.cmd"
-) else (
-  echo [WARN] install\init_folders.cmd not found; placeholders were not recreated.
+  if "%DRY_RUN%"=="1" (
+    echo [DRY] call install\init_folders.cmd
+  ) else (
+    call "%BASE_DIR%\install\init_folders.cmd" >nul 2>nul
+  )
 )
 
-call :ASSERT_EMPTY "%BASE_DIR%\Tools\ffmpeg" "Tools\ffmpeg"
-call :ASSERT_ABSENT "%BASE_DIR%\system_core\vapoursynth" "system_core\vapoursynth"
-call :ASSERT_PRESENT "%BASE_DIR%\wheelhouse" "wheelhouse"
+echo.
+if not "%ERROR_COUNT%"=="0" goto cleanup_failed
+if "%DRY_RUN%"=="1" goto dry_run_done
+echo [OK] Cleanup finished.
+echo [OK] Project is back to source-only LEAN shape.
+echo [OK] runtime, wheelhouse, Tools, install\download and generated work folders were recreated empty.
+goto cleanup_done
 
-echo.
-echo [DONE] Project cleanup finished. Removed approximately %REMOVED% items.
-echo The tree is now intended to contain only source scripts, docs, configs,
-echo preset source files and empty service folders.
-echo.
-call :WAIT_IF_NEEDED
+:dry_run_done
+echo [OK] Dry run finished. Nothing was deleted.
+
+:cleanup_done
+if not "%AUTO_YES%"=="1" call :WAIT_KEY
 exit /b 0
+
+:cleanup_failed
+echo [ERROR] Cleanup finished with %ERROR_COUNT% error(s).
+echo Close the window, terminals, Python processes, VapourSynth/FFmpeg/7-Zip processes, and try again.
+if not "%AUTO_YES%"=="1" call :WAIT_KEY
+exit /b 1
 
 :cancelled
 echo.
 echo [CANCELLED] Nothing was deleted.
-call :WAIT_IF_NEEDED
+if not "%AUTO_YES%"=="1" call :WAIT_KEY
 exit /b 0
 
 :quit
 echo.
 echo [QUIT] Nothing was deleted.
-call :WAIT_IF_NEEDED
+if not "%AUTO_YES%"=="1" call :WAIT_KEY
 exit /b 0
 
-:REMOVE_TREE
-if exist "%~1\" (
-  attrib -R -S -H "%~1\*" /S /D >nul 2>nul
-  rd /s /q "%~1" >nul 2>nul
-  if exist "%~1\" (
-    attrib -R -S -H "%~1\*" /S /D >nul 2>nul
-    del /f /s /q "%~1\*" >nul 2>nul
-    for /d %%D in ("%~1\*") do rd /s /q "%%~fD" >nul 2>nul
-    rd /s /q "%~1" >nul 2>nul
-  )
-  if exist "%~1\" (
-    echo [WARN] Could not remove %~2 - close processes using this folder and rerun cleanup.
+
+:usage
+echo Usage:
+echo   cleanup_project.cmd [/Y] [/DRYRUN]
+echo.
+echo Options:
+echo   /Y, /YES, --yes       Run without confirmation.
+echo   /DRYRUN, --dry-run    Print actions without deleting anything.
+exit /b 0
+:ClearDir
+set "TARGET_DIR=%~1"
+call :AssertInside "%TARGET_DIR%" || (
+  set /a ERROR_COUNT+=1
+  exit /b 1
+)
+if not exist "%TARGET_DIR%\" (
+  if "%DRY_RUN%"=="1" (
+    echo [DRY] mkdir "%TARGET_DIR%"
   ) else (
-    set /a REMOVED+=1
-    echo [OK] Removed %~2\
+    echo [CREATE] %TARGET_DIR%
+    md "%TARGET_DIR%" >nul 2>nul
+    if not exist "%TARGET_DIR%\" call :MarkError "Could not create directory: %TARGET_DIR%"
   )
+  exit /b 0
 )
-goto :eof
-
-:STOP_PROJECT_PROCESSES
-where wmic >nul 2>nul
-if errorlevel 1 (
-  echo [INFO] WMIC not found; skip process auto-stop.
-  goto :eof
+call :IsLink "%TARGET_DIR%"
+if "!IS_LINK!"=="1" (
+  call :MarkError "Not cleared: %TARGET_DIR% is a link to another place, and what lies there is not the project's"
+  exit /b 1
 )
-set "WMIC_ROOT=%BASE_DIR:\=\\%\\%%"
-for /f "tokens=2 delims==" %%P in ('wmic process where "ExecutablePath like '%WMIC_ROOT%'" get ProcessId /value 2^>nul ^| find "="') do (
-  if not "%%P"=="" (
-    taskkill /PID %%P /F >nul 2>nul
-    if not errorlevel 1 echo [OK] Stopped project process PID=%%P
-  )
-)
-set "WMIC_ROOT="
-goto :eof
-
-:ASSERT_ABSENT
-if exist "%~1\" (
-  echo [WARN] %~2 still exists after cleanup. It should not be part of the cleaned tree.
-) else (
-  echo [OK] %~2 absent from cleaned tree
-)
-goto :eof
-
-:ASSERT_EMPTY
-rem install\init_folders.cmd recreates this folder as an empty release
-rem placeholder, so absence is not the test - emptiness is. A binary that
-rem survived the cleanup is what this must still catch.
-if not exist "%~1\" (
-  echo [OK] %~2 absent from cleaned tree
-  goto :eof
-)
-set "ASSERT_HIT="
-for /f "delims=" %%F in ('dir /a-d /b /s "%~1" 2^>nul') do set "ASSERT_HIT=1"
-if defined ASSERT_HIT (
-  echo [WARN] %~2 still holds files after cleanup. It should be an empty placeholder.
-) else (
-  echo [OK] %~2 empty placeholder in cleaned tree
-)
-set "ASSERT_HIT="
-goto :eof
-
-:ASSERT_PRESENT
-if exist "%~1\" (
-  echo [OK] %~2 recreated as release placeholder
-) else (
-  echo [WARN] %~2 was not recreated; run install\init_folders.cmd
-)
-goto :eof
-
-:REMOVE_FILE
-if exist "%~1" (
-  del /f /q "%~1" >nul 2>nul
-  if exist "%~1" (
-    echo [WARN] Could not remove %~2
+echo [CLEAR] %TARGET_DIR%
+for /f "delims=" %%I in ('dir /a /b "%TARGET_DIR%" 2^>nul') do (
+  call :IsLink "%TARGET_DIR%\%%I"
+  if "!IS_LINK!"=="1" (
+    call :RemoveLink "%TARGET_DIR%\%%I"
   ) else (
-    set /a REMOVED+=1
-    echo [OK] Removed %~2
+    if exist "%TARGET_DIR%\%%I\" (
+      if "%DRY_RUN%"=="1" (
+        echo   [DRY] rmdir /s /q "%TARGET_DIR%\%%I"
+      ) else (
+        echo   rmdir "%TARGET_DIR%\%%I"
+        attrib -r -s -h "%TARGET_DIR%\%%I\*" /s /d >nul 2>nul
+        rd /s /q "%TARGET_DIR%\%%I" >nul 2>nul
+        if exist "%TARGET_DIR%\%%I\" call :MarkError "Could not remove directory: %TARGET_DIR%\%%I"
+      )
+    ) else (
+      if "%DRY_RUN%"=="1" (
+        echo   [DRY] del "%TARGET_DIR%\%%I"
+      ) else (
+        echo   del "%TARGET_DIR%\%%I"
+        attrib -r -s -h "%TARGET_DIR%\%%I" >nul 2>nul
+        del /f /q "%TARGET_DIR%\%%I" >nul 2>nul
+        if exist "%TARGET_DIR%\%%I" call :MarkError "Could not remove file: %TARGET_DIR%\%%I"
+      )
+    )
   )
 )
-goto :eof
+exit /b 0
 
-:WAIT_IF_NEEDED
-if "%AUTO_YES%"=="1" goto :eof
-if "%NO_PAUSE%"=="1" goto :eof
-call :WAIT_KEY
-goto :eof
+:RemoveDir
+set "TARGET=%~1"
+if not exist "%TARGET%\" exit /b 0
+call :AssertInside "%TARGET%" || (
+  set /a ERROR_COUNT+=1
+  exit /b 1
+)
+call :IsLink "%TARGET%"
+if "!IS_LINK!"=="1" (
+  call :RemoveLink "%TARGET%"
+  exit /b 0
+)
+if "%DRY_RUN%"=="1" (
+  echo   [DRY] rmdir /s /q "%TARGET%"
+  exit /b 0
+)
+echo   rmdir "%TARGET%"
+attrib -r -s -h "%TARGET%\*" /s /d >nul 2>nul
+rd /s /q "%TARGET%" >nul 2>nul
+if exist "%TARGET%\" call :MarkError "Could not remove directory: %TARGET%"
+exit /b 0
+
+:RemoveFile
+set "TARGET=%~1"
+if not exist "%TARGET%" exit /b 0
+call :AssertInside "%TARGET%" || (
+  set /a ERROR_COUNT+=1
+  exit /b 1
+)
+if "%DRY_RUN%"=="1" (
+  echo   [DRY] del "%TARGET%"
+  exit /b 0
+)
+echo   del "%TARGET%"
+attrib -r -s -h "%TARGET%" >nul 2>nul
+del /f /q "%TARGET%" >nul 2>nul
+if exist "%TARGET%" call :MarkError "Could not remove file: %TARGET%"
+exit /b 0
+:RemoveFilesInDirByPattern
+set "TARGET_DIR=%~1"
+set "PATTERN=%~2"
+if not exist "%TARGET_DIR%\" exit /b 0
+call :AssertInside "%TARGET_DIR%" || (
+  set /a ERROR_COUNT+=1
+  exit /b 1
+)
+call :IsLink "%TARGET_DIR%"
+if "!IS_LINK!"=="1" (
+  call :MarkError "Not cleared: %TARGET_DIR% is a link to another place"
+  exit /b 1
+)
+echo [FILES] Removing %PATTERN% in %TARGET_DIR%
+for /f "delims=" %%F in ('dir /a-d /b "%TARGET_DIR%\%PATTERN%" 2^>nul') do (
+  if "%DRY_RUN%"=="1" (
+    echo   [DRY] del "%TARGET_DIR%\%%F"
+  ) else (
+    echo   del "%TARGET_DIR%\%%F"
+    attrib -r -s -h "%TARGET_DIR%\%%F" >nul 2>nul
+    del /f /q "%TARGET_DIR%\%%F" >nul 2>nul
+    if exist "%TARGET_DIR%\%%F" call :MarkError "Could not remove file: %TARGET_DIR%\%%F"
+  )
+)
+exit /b 0
+
+:IsLink
+rem IS_LINK=1 when the path is a link - a junction or a symbolic link, of a folder or a file: the parent lists it among
+rem its reparse points. A path inside a project may lead out of it through such a link; its contents are never walked.
+set "IS_LINK=0"
+set "LINK_PATH=%~f1"
+for %%P in ("!LINK_PATH!\..") do set "LINK_PARENT=%%~fP"
+for %%N in ("!LINK_PATH!") do set "LINK_NAME=%%~nxN"
+for /f "delims=" %%L in ('dir /al /b "!LINK_PARENT!" 2^>nul') do if /I "%%L"=="!LINK_NAME!" set "IS_LINK=1"
+exit /b 0
+
+:RemoveLink
+rem The link itself goes; what it leads to stays where it is.
+if "%DRY_RUN%"=="1" (
+  echo   [DRY] unlink "%~1"
+  exit /b 0
+)
+echo   unlink "%~1"
+if exist "%~1\" (rd "%~1" >nul 2>nul) else (del /f /q /a:l "%~1" >nul 2>nul)
+call :IsLink "%~1"
+if "!IS_LINK!"=="1" call :MarkError "Could not remove link: %~1"
+exit /b 0
+
+:AssertInside
+set "TARGET_ABS=%~f1"
+if /I "%TARGET_ABS%"=="%BASE_DIR%" (
+  echo [SKIP] Refusing to clean project root directly.
+  exit /b 1
+)
+set "TARGET_HEAD=!TARGET_ABS:~0,%BASE_PREFIX_LEN%!"
+if /I "!TARGET_HEAD!"=="!BASE_PREFIX!" exit /b 0
+echo [SKIP] Outside project root: %TARGET_ABS%
+exit /b 1
+
+:MarkError
+echo   [ERROR] %~1
+set /a ERROR_COUNT+=1
+exit /b 0
 
 :WAIT_KEY
 echo Press any key to continue . . .

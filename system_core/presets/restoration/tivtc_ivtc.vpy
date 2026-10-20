@@ -17,12 +17,15 @@
 # Optional:
 #   AUDION_VS_PP         TFM post-processor mode 0..7. Default 6 (the most
 #                        common; deinterlaces frames TFM cannot match cleanly).
-#   AUDION_VS_CYCLE_R    int -- TDecimate cycle/r (drop r frames per cycle).
-#                        Default "5/4" -- standard NTSC telecine.
+#   AUDION_VS_CYCLE      int -- the TDecimate cycle in frames. Default 5.
+#   AUDION_VS_RDROP      int -- frames dropped from each cycle. Default 1
+#                        (1 of 5 -- standard NTSC telecine).
 #
 import os
 import vapoursynth as vs
 core = vs.core
+
+import audion_lib as al
 
 INPUT  = os.environ["AUDION_VS_INPUT"]
 PP     = int(os.environ.get("AUDION_VS_PP", "6"))
@@ -30,14 +33,14 @@ CYCLE  = int(os.environ.get("AUDION_VS_CYCLE",  "5"))
 RDROP  = int(os.environ.get("AUDION_VS_RDROP",  "1"))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
+src = al.load_source(INPUT)
 
-
-src = _load(INPUT)
+# A source at film rate (23.976, 24, 25 fps) carries no pulldown: TDecimate would drop every fifth real frame of it.
+if src.fps_num and src.fps < 29:
+    raise vs.Error(
+        f"tivtc_ivtc: inverse telecine takes 29.97 fps material with 3:2 pulldown; this source runs at "
+        f"{float(src.fps):.3f} fps, film rate already - nothing to remove, every fifth frame would be dropped."
+    )
 
 # TFM expects YUV with proper field flags. Tag the source as TFF (NTSC default)
 # if the upstream file did not -- safe choice for telecined NTSC.
@@ -49,5 +52,5 @@ matched = core.tivtc.TFM(src, PP=PP)
 # Decimation pass: drop the redundant 5th frame in each cycle of 5.
 out = core.tivtc.TDecimate(matched, cycle=CYCLE, cycleR=RDROP)
 
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1, _FieldBased=0)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range(), _FieldBased=0)
 out.set_output()

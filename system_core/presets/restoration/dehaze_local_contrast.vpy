@@ -28,19 +28,14 @@ import os
 import vapoursynth as vs
 core = vs.core
 
+import audion_lib as al
+
 INPUT    = os.environ["AUDION_VS_INPUT"]
 STRENGTH = max(0.0, min(2.0, float(os.environ.get("AUDION_VS_STRENGTH", "1.0"))))
 RADIUS   = max(1,   min(16,  int(os.environ.get("AUDION_VS_RADIUS",   "8"))))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-src = _load(INPUT)
+src = al.load_source(INPUT)
 
 # Work at 16-bit float-equivalent for clean math.
 clip = core.fmtc.bitdepth(src, bits=16)
@@ -75,5 +70,5 @@ out = core.std.ShufflePlanes([final_luma, clip, clip], [0, 1, 2], vs.YUV)
 
 # Output in 10-bit for the standard encoder profiles.
 out = core.fmtc.bitdepth(out, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

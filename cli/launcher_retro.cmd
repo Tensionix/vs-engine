@@ -42,7 +42,7 @@ goto FALLBACK_MENU
 > "%MENU_FILE%" echo === Retro looks (analog character) =================================
 >>"%MENU_FILE%" echo [01] VHS / CRT                             ^| vhs_crt         ^| chroma bleed, soft optics, analog noise
 >>"%MENU_FILE%" echo [02] Camcorder 90s                         ^| camcorder_90s   ^| softer than VHS, slight overexposure
->>"%MENU_FILE%" echo [03] Polaroid                              ^| polaroid        ^| 1970s SX-70: candy-bloom, warm cream, edge vignette
+>>"%MENU_FILE%" echo [03] Polaroid                              ^| polaroid        ^| 1970s SX-70: candy bloom, vignette
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo === Tools ==========================================================
 >>"%MENU_FILE%" echo [04] List encoders                         ^| list_encoders   ^| H.264 / H.265 / ProRes / DNxHR
@@ -76,7 +76,7 @@ goto MAIN
 echo === Retro looks ===
 echo [1] VHS / CRT             (chroma bleed, soft, analog noise)
 echo [2] Camcorder 90s         (softer than VHS, overexposed feel)
-echo [3] Polaroid              (1970s SX-70 vibe, candy-bloom, vignette)
+echo [3] Polaroid              (1970s SX-70, candy bloom, vignette)
 echo.
 echo === Tools ===
 echo [4] List encoders
@@ -108,7 +108,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE vhs_crt
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET vhs_crt --intensity %INTENSITY%
+call :RUN_PRESET vhs_crt intensity %INTENSITY%
 goto MAIN
 
 :CAMCORDER_90S
@@ -116,7 +116,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE camcorder_90s
 call :ASK_INTENSITY
 call :ASK_ENCODER
-call :RUN_PRESET camcorder_90s --intensity %INTENSITY%
+call :RUN_PRESET camcorder_90s intensity %INTENSITY%
 goto MAIN
 
 :POLAROID
@@ -125,11 +125,11 @@ call :ASK_OUTPUT_FILE polaroid
 call :ASK_INTENSITY
 call :ASK_VIGNETTE
 call :ASK_ENCODER
-call :RUN_PRESET polaroid --intensity %INTENSITY% --vignette %VIGNETTE%
+call :RUN_PRESET polaroid intensity %INTENSITY% vignette %VIGNETTE%
 goto MAIN
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -160,14 +160,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Press Enter to use the project input folder, or type a file/folder path.
 set /p SRC_PATH=Input file or folder [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Output file [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Output folder [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_INTENSITY
@@ -235,7 +237,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -245,7 +248,7 @@ echo       input:   %SRC_PATH%
 echo       output:  %DST_PATH%
 echo       encoder: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette retro --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof

@@ -1,32 +1,13 @@
-# Core
+# Portable baseline: the builder and the lock of the requirements
 pip-tools
-requests
-tqdm
-pydantic
+setuptools
+wheel
+packaging
 
-# GUI layer
-nicegui
-pywebview
-pyyaml
-rich
-psutil
+# What the engine imports (3.0.0): PyYAML reads the manifest and the layout. The window on NiceGUI and the packages it
+# lived on - nicegui, pywebview, rich, psutil, tqdm, beautifulsoup4 - are gone with it, and so are the packages of the
+# template nobody imported (requests, pydantic, python-docx, lxml, markdown-it-py).
+PyYAML
 
-# Documents / parsing
-python-docx
-lxml
-markdown-it-py
-
-# Optional packs - uncomment when the project needs them
-# openai
-# google-genai
-# markitdown[all]
-# pandas
-# openpyxl
-# pymupdf
-# python-pptx
-
-# Test and audit layer
+# Test layer
 pytest
-# NiceGUI's headless `user` fixture parses the rendered page with BeautifulSoup;
-# the Screen fixture would need selenium and is deliberately not used.
-beautifulsoup4

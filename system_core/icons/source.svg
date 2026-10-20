@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <title>Audion VS Engine</title>
+  <desc>A cyan film television with three perforations on each side and an optically centered warm PLAY symbol. Antennas and feet are visible sections of two continuous straight diagonal supports behind the body. Flat saturated gradients.</desc>
+  <defs>
+    <linearGradient id="tile" x1="100" y1="0" x2="924" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0.000" stop-color="#26334C"/><stop offset="0.500" stop-color="#151D31"/><stop offset="1.000" stop-color="#0A1120"/></linearGradient>
+<linearGradient id="cyan" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0.000" stop-color="#65E6FF"/><stop offset="0.500" stop-color="#18B6EE"/><stop offset="1.000" stop-color="#147BE8"/></linearGradient>
+<linearGradient id="warm" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0.000" stop-color="#FFD152"/><stop offset="0.500" stop-color="#FF8B31"/><stop offset="1.000" stop-color="#F2554D"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#tile)"/>
+  <path id="support-lines" d="M381 168L722 850M643 168L302 850" stroke="url(#cyan)" stroke-width="56" stroke-linecap="round"/>
+  <rect id="television" x="120" y="280" width="784" height="496" rx="84" fill="url(#cyan)"/>
+  <rect id="screen" x="248" y="336" width="528" height="384" rx="44" fill="url(#tile)"/>
+  <rect id="perf-left-0" x="156" y="338" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <rect id="perf-left-1" x="156" y="496" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <rect id="perf-left-2" x="156" y="654" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <rect id="perf-right-0" x="812" y="338" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <rect id="perf-right-1" x="812" y="496" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <rect id="perf-right-2" x="812" y="654" width="56" height="64" rx="12" fill="url(#tile)"/>
+  <path id="play" d="M432.000 411.606Q432.000 389.436 451.200 400.521L652.800 516.915Q672.000 528.000 652.800 539.085L451.200 655.479Q432.000 666.564 432.000 644.394Z" fill="url(#warm)"/>
+</svg>

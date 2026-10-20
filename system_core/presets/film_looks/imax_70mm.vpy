@@ -1,6 +1,6 @@
 # Audion VS Engine -- Film Looks palette
 # Preset: imax_70mm
-# Stack:  Subtle MTF soften -> minimal halation -> very fine grain -> 1px gate weave
+# Stack:  Subtle MTF soften -> minimal halation -> very fine grain -> gate weave up to 2 px
 # Goal:   Large-format 65/70mm IMAX feel. The opposite of Super 8: maximum
 #         resolution preserved, almost no grain (large frame area means each
 #         silver crystal is tiny relative to picture), gentle highlight halation
@@ -17,7 +17,7 @@
 # Optional:
 #   AUDION_VS_INTENSITY  float 0.0..2.0 -- master scale; 0 = passthrough,
 #                        1 = tuned, 2 = exaggerated.            default 1.0
-#   AUDION_VS_GATE_WEAVE int 0|1 -- enable 1px random gate weave.   default 1
+#   AUDION_VS_GATE_WEAVE int 0|1 -- random gate weave up to 2 px.   default 1
 #
 import os
 import random
@@ -93,5 +93,5 @@ if GATE_WEAVE and INTENSITY > 0.0:
 
 # Output 10-bit for standard encoders.
 out = core.fmtc.bitdepth(grained, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

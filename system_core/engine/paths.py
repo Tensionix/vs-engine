@@ -38,7 +38,7 @@ class ProjectPaths:
         if missing:
             raise RuntimeError(
                 "Engine not ready, missing:\n  " + "\n  ".join(missing)
-                + "\n\nRun builder_main.cmd -> [10..14] install steps."
+                + "\n\nRun builder_main.cmd -> [10..12] install steps."
             )
 
 

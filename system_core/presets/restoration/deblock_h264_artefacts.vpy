@@ -23,6 +23,8 @@ import os
 import vapoursynth as vs
 core = vs.core
 
+import audion_lib as al
+
 import havsfunc as haf
 
 INPUT   = os.environ["AUDION_VS_INPUT"]
@@ -32,14 +34,7 @@ AOFFSET = max(0,  min(2,  int(os.environ.get("AUDION_VS_AOFFSET", "1"))))
 BOFFSET = max(0,  min(2,  int(os.environ.get("AUDION_VS_BOFFSET", "1"))))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-src = _load(INPUT)
+src = al.load_source(INPUT)
 clip = core.fmtc.bitdepth(src, bits=16)
 
 out = haf.Deblock_QED(
@@ -50,5 +45,5 @@ out = haf.Deblock_QED(
 )
 
 out = core.fmtc.bitdepth(out, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

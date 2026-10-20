@@ -141,7 +141,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE mild_denoise
 call :ASK_STRENGTH
 call :ASK_ENCODER
-call :RUN_PRESET mild_denoise --strength %STRENGTH%
+call :RUN_PRESET mild_denoise strength %STRENGTH%
 goto MAIN
 
 :SHADOW_DENOISE_SOTA
@@ -151,7 +151,7 @@ call :ASK_SIGMA 2.5
 call :ASK_GRAIN_BACK
 call :ASK_SHADOW_THRESHOLD
 call :ASK_ENCODER
-call :RUN_PRESET shadow_denoise_sota --sigma %SIGMA% --grain-back %GRAIN_BACK% --shadow-threshold %SHADOW_THRESHOLD%
+call :RUN_PRESET shadow_denoise_sota sigma %SIGMA% grain_back %GRAIN_BACK% shadow_threshold %SHADOW_THRESHOLD%
 goto MAIN
 
 :CHROMA_CLEANUP
@@ -159,7 +159,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE chroma_cleanup
 call :ASK_STRENGTH
 call :ASK_ENCODER
-call :RUN_PRESET chroma_cleanup --strength %STRENGTH%
+call :RUN_PRESET chroma_cleanup strength %STRENGTH%
 goto MAIN
 
 :DEBAND_SAFE
@@ -167,7 +167,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE deband_safe
 call :ASK_DEBAND_RANGE 12
 call :ASK_ENCODER
-call :RUN_PRESET deband_safe --range %DEBAND_RANGE%
+call :RUN_PRESET deband_safe range %DEBAND_RANGE%
 goto MAIN
 
 :DEBAND_FINE_GRAIN
@@ -176,7 +176,7 @@ call :ASK_OUTPUT_FILE deband_fine_grain
 call :ASK_DEBAND_RANGE 14
 call :ASK_GRAIN_VAR
 call :ASK_ENCODER
-call :RUN_PRESET deband_fine_grain --range %DEBAND_RANGE% --grain-var %GRAIN_VAR%
+call :RUN_PRESET deband_fine_grain range %DEBAND_RANGE% grain_var %GRAIN_VAR%
 goto MAIN
 
 :FILMIC_REBUILD
@@ -185,7 +185,7 @@ call :ASK_OUTPUT_FILE filmic_rebuild
 call :ASK_SIGMA 2.0
 call :ASK_DEBAND_RANGE 14
 call :ASK_ENCODER
-call :RUN_PRESET filmic_rebuild --sigma %SIGMA% --deband-range %DEBAND_RANGE%
+call :RUN_PRESET filmic_rebuild sigma %SIGMA% deband_range %DEBAND_RANGE%
 goto MAIN
 
 :ARCHIVE_CLEAN
@@ -193,7 +193,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE archive_clean
 call :ASK_DENOISE_BUCKET
 call :ASK_ENCODER
-call :RUN_PRESET archive_clean --denoise %DENOISE_BUCKET%
+call :RUN_PRESET archive_clean denoise %DENOISE_BUCKET%
 goto MAIN
 
 :PREGRADE_PREP
@@ -201,7 +201,7 @@ call :ASK_INPUT_FILE
 call :ASK_OUTPUT_FILE pregrade_prep
 call :ASK_PREGRADE_STRENGTH
 call :ASK_ENCODER
-call :RUN_PRESET pregrade_prep --strength %STRENGTH%
+call :RUN_PRESET pregrade_prep strength %STRENGTH%
 goto MAIN
 
 
@@ -210,7 +210,7 @@ REM Сервис
 REM =====================================================================
 
 :LIST_ENCODERS
-call :RUNPY "%CORE_DIR%\main.py" list-encoders
+call "%BASE_DIR%\vs_cli.cmd" list encoders
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -224,7 +224,7 @@ set "SRC_PATH="
 echo.
 set /p SRC_PATH=Файл для анализа [Enter -- взять из папки input] :
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
-call :RUNPY "%CORE_DIR%\main.py" probe --input "%SRC_PATH%"
+call "%BASE_DIR%\vs_cli.cmd" run --operation probe_source --source "%SRC_PATH%"
 if not defined AUDION_NO_PAUSE pause
 goto MAIN
 
@@ -250,14 +250,16 @@ set "SRC_PATH="
 echo.
 echo [INFO] Нажмите Enter для папки input проекта или укажите путь к файлу/папке.
 set /p SRC_PATH=Файл или папка input [input] :
+if defined SRC_PATH set "SRC_PATH=%SRC_PATH:"=%"
 if not defined SRC_PATH set "SRC_PATH=%BASE_DIR%\input"
 goto :eof
 
 :ASK_OUTPUT_FILE
 set "DST_PATH="
 echo.
-set /p DST_PATH=Выходной файл [output\out_%~1.mp4] :
-if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output\out_%~1.mp4"
+set /p DST_PATH=Папка результата [output] :
+if defined DST_PATH set "DST_PATH=%DST_PATH:"=%"
+if not defined DST_PATH set "DST_PATH=%BASE_DIR%\output"
 goto :eof
 
 :ASK_STRENGTH
@@ -415,7 +417,8 @@ shift
 set "EXTRA="
 :RUN_PRESET_LOOP
 if "%~1"=="" goto RUN_PRESET_GO
-set "EXTRA=%EXTRA% %~1"
+set "EXTRA=%EXTRA% --set "%~1=%~2""
+shift
 shift
 goto RUN_PRESET_LOOP
 :RUN_PRESET_GO
@@ -425,7 +428,7 @@ echo          вход:    %SRC_PATH%
 echo          выход:   %DST_PATH%
 echo          энкодер: %ENCODER%
 echo.
-call :RUNPY "%CORE_DIR%\main.py" run --palette precision --preset %PRESET% --input "%SRC_PATH%" --output "%DST_PATH%" --encoder %ENCODER%%EXTRA%
+call "%BASE_DIR%\vs_cli.cmd" run --operation %PRESET% --source "%SRC_PATH%" --target "%DST_PATH%" --encoder %ENCODER%%EXTRA%
 echo.
 if not defined AUDION_NO_PAUSE pause
 goto :eof

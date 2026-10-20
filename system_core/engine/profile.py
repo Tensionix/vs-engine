@@ -32,7 +32,6 @@ BUILTINS: dict[str, dict[str, Any]] = {
             "grain_back":       0.6,
             "shadow_threshold": 0.20,
             "transition":       0.10,
-            "use_cuda":         "0",
         },
         "encoder":     "h264_crf14",
         "description": "Quick shadow-noise cleanup of dark digital footage",
@@ -166,19 +165,3 @@ def resolve(name: str, profiles_dir: Path | None = None) -> dict[str, Any]:
             f"Available: {sorted(profs)}"
         )
     return profs[name]
-
-
-def list_profile_summary(profiles_dir: Path | None = None) -> list[tuple[str, str, str, str]]:
-    """Return [(name, palette/preset, encoder, description), ...] sorted by name."""
-    profs = all_profiles(profiles_dir)
-    out = []
-    for name in sorted(profs):
-        p = profs[name]
-        palette_preset = f"{p.get('palette', '?')}/{p.get('preset', '?')}"
-        out.append((
-            name,
-            palette_preset,
-            p.get("encoder", "?"),
-            p.get("description", ""),
-        ))
-    return out

@@ -86,7 +86,7 @@ flared = core.std.Expr([rgb16, streak_rgb], ["x y + 0 max 65535 min"])
 # 5. Subtle teal-cool shadow tint. "Teal" in RGB ~ R: -10%, G: +5%, B: +12%
 #    in shadow zones only (luma < 0.4). Use a smooth shadow mask.
 if TEAL_SHADOW > 0.0:
-    yuv16 = core.resize.Bicubic(flared, format=vs.YUV444P16, matrix_s="709")
+    yuv16 = core.resize.Bicubic(flared, format=vs.YUV444P16, matrix_s="709", range_s=al.range_name())
     luma  = core.std.ShufflePlanes(yuv16, 0, vs.GRAY)
     # Build smooth shadow mask: 1.0 at luma=0, fading to 0.0 at luma=0.4 (16-bit: 26214)
     shadow_mask = core.std.Expr([luma], ["26214 x - 26214 / 0 max 1 min 65535 *"])
@@ -105,7 +105,7 @@ if TEAL_SHADOW > 0.0:
     flared = core.std.MaskedMerge(flared, biased, shadow_mask, planes=[0, 1, 2])
 
 # 6. Convert back to YUV420P10 + add subtle film-style fine grain
-out16 = core.resize.Bicubic(flared, format=vs.YUV420P16, matrix_s="709")
+out16 = core.resize.Bicubic(flared, format=vs.YUV420P16, matrix_s="709", range_s=al.range_name())
 if INTENSITY > 0.0:
     out16 = al.luma_zoned_grain(
         out16,
@@ -115,5 +115,5 @@ if INTENSITY > 0.0:
     )
 
 out = core.fmtc.bitdepth(out16, bits=10)
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

@@ -15,6 +15,8 @@ import os
 import vapoursynth as vs
 core = vs.core
 
+import audion_lib as al
+
 INPUT = os.environ["AUDION_VS_INPUT"]
 RANGE = int(os.environ.get("AUDION_VS_RANGE", "12"))
 Y     = int(os.environ.get("AUDION_VS_Y",  "48"))
@@ -22,14 +24,7 @@ CB    = int(os.environ.get("AUDION_VS_CB", "32"))
 CR    = int(os.environ.get("AUDION_VS_CR", "32"))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-clip = _load(INPUT)
+clip = al.load_source(INPUT)
 
 # neo_f3kdb works at any of 8/10/12/14/16 bit YUV.  Use 16-bit for headroom.
 clip = core.fmtc.bitdepth(clip, bits=16)
@@ -41,5 +36,5 @@ clip = core.neo_f3kdb.Deband(
     sample_mode=2,
 )
 clip = core.fmtc.bitdepth(clip, bits=10)
-clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 clip.set_output()

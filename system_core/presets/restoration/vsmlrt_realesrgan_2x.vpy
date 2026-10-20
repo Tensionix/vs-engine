@@ -1,40 +1,27 @@
 # Audion VS Engine -- Restoration palette
-# Preset: vsmlrt_realesrgan_2x (Phase 18.B-ML)
+# Preset: vsmlrt_realesrgan_2x
 # Stack:  vsmlrt.RealESRGAN (TensorRT -> DirectML -> CPU) -> 2x upscale
-# Goal:   ML-upscale 1080p source to ~3840x2160 (slightly over 4K) using
-#         Real-ESRGAN -- the de-facto reference for video super-resolution.
-#         Produces sharper, more textured output than Lanczos / Spline36 /
-#         Resolve SuperScale, especially on faces and fine fabric texture.
-#
-#         What this gives you that Adobe / DaVinci do NOT:
-#         - true ML upscale (NLE "AI scale" plugins are usually paid add-ons)
-#         - choice of model variant: animevideov3 (clean cartoon/2D content)
-#           vs general-x4v3 (live action / mixed content)
-#         - TensorRT path on NVIDIA = 2-3x faster than DirectML / CPU EP
-#         - reproducible from CLI, batch-friendly
+# Goal:   drawn animation twice the size with clean, sharp lines. Every
+#         Real-ESRGAN model vs-mlrt carries is made for drawn animation: the
+#         general models of Real-ESRGAN (general-x4v3, general-wdn-x4v3) are
+#         not in vs-mlrt, so they are not offered. On live action the
+#         models can over-sharpen.
 #
 # Required:
 #   AUDION_VS_INPUT       absolute path to source media (must be RGB or YUV)
 # Optional:
-#   AUDION_VS_MODEL       which Real-ESRGAN model variant to use:
-#                           "animevideov3"      -- 4-channel anime/2D model
-#                                                  (sharp on cartoons, can
-#                                                  over-sharpen real video)
-#                           "general-x4v3"      -- general purpose, mild,
-#                                                  best for live-action
-#                                                  default
-#                           "general-wdn-x4v3"  -- general with extra
-#                                                  noise denoise
-#                           "animejanaiV2-L1"   -- newer anime, lighter
-#                           "animejanaiV2-L2"   -- newer anime, balanced
-#                           "animejanaiV2-L3"   -- newer anime, heaviest
-#   AUDION_VS_TILE        int 256 / 384 / 512 / 768 -- input tile size
+#   AUDION_VS_MODEL       which Real-ESRGAN model to use:
+#                           "animevideov3"      -- the lightest; default
+#                           "animejanaiV2-L1"   -- AnimeJaNai, lighter
+#                           "animejanaiV2-L2"   -- AnimeJaNai, balanced
+#                           "animejanaiV2-L3"   -- AnimeJaNai, heaviest
+#   AUDION_VS_TILE        int 256 .. 768 -- input tile size
 #                         (smaller = less VRAM but slower).   default 384
 #   AUDION_VS_TILE_PAD    int -- tile padding to hide seams.  default 16
 #   AUDION_VS_BACKEND     "trt" (NVIDIA TensorRT, fastest) | "ort_dml"
-#                         (DirectML; any DX12 GPU including Intel/AMF/NVIDIA) |
-#                         "ort_cpu" (CPU fallback).         default auto
-#                         (try trt -> ort_dml -> ort_cpu)
+#                         (DirectML; any DX12 GPU) | "ort_cpu" | "auto"
+#                         (trt -> ort_dml -> ort_cpu). The service sets it
+#                         from PROCESSING; it is no field of the form.
 #
 # Note on first-run TensorRT compile:
 #   TensorRT compiles a model engine for the specific (model, GPU, resolution,
@@ -50,17 +37,11 @@ import vsmlrt
 import audion_lib as al
 
 INPUT     = os.environ["AUDION_VS_INPUT"]
-MODEL     = os.environ.get("AUDION_VS_MODEL", "general-x4v3")
+MODEL     = os.environ.get("AUDION_VS_MODEL", "animevideov3")
 TILE      = int(os.environ.get("AUDION_VS_TILE", "384"))
 TILE_PAD  = int(os.environ.get("AUDION_VS_TILE_PAD", "16"))
 BACKEND   = os.environ.get("AUDION_VS_BACKEND", "auto").lower()
 
-
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
 
 
 # Map our short backend tag to a vsmlrt.Backend instance with sane defaults.
@@ -97,22 +78,14 @@ def _fit_tile(clip: vs.VideoNode, requested: int, align: int = 16) -> int:
 
 # Map model name to vsmlrt model enum constant.
 #
-# vsmlrt exposes RealESRGANv2Model.<name>. The enum surface drifts between
-# vsmlrt releases: v3.22 (shipped with vs-mlrt v15.16) DROPPED the
-# SRVGGNet-general models (`general_x4v3`, `general_wdn_x4v3`) because they
-# were retired upstream. We use getattr() everywhere so a missing entry
-# becomes None, then map old "general-*" tokens to `animevideov3` -- the
-# practical replacement that handles live-action and mixed content.
+# vsmlrt exposes RealESRGANv2Model.<name>; the enum drifts between vsmlrt
+# releases, so getattr() turns a missing entry into None, and a model the
+# installed vsmlrt does not have is refused by name - never run as another.
 _M = vsmlrt.RealESRGANv2Model
 _MODEL_MAP = {
-    # Stable / current entries
     "animevideov3":      getattr(_M, "animevideov3", None),
     "animevideo-xsx2":   getattr(_M, "animevideo_xsx2", None),
     "animevideo-xsx4":   getattr(_M, "animevideo_xsx4", None),
-    # Legacy SRVGGNet aliases -> closest live model
-    "general-x4v3":      getattr(_M, "general_x4v3",     getattr(_M, "animevideov3", None)),
-    "general-wdn-x4v3":  getattr(_M, "general_wdn_x4v3", getattr(_M, "animevideov3", None)),
-    # Anime-Janai V2/V3 (anime-tuned)
     "animejanaiv2-l1":   getattr(_M, "animejanaiV2L1", None),
     "animejanaiv2-l2":   getattr(_M, "animejanaiV2L2", None),
     "animejanaiv2-l3":   getattr(_M, "animejanaiV2L3", None),
@@ -137,8 +110,8 @@ else:
     picked = BACKEND
 
 # Load and convert to RGBS (Real-ESRGAN ONNX expects 32-bit float RGB)
-src = _load(INPUT)
-src = core.std.SetFrameProps(src, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+src = al.load_source(INPUT)
+src = al.tag_bt709(src)
 rgb = core.resize.Bicubic(src, format=vs.RGBS, matrix_in_s="709")
 tile = _fit_tile(rgb, TILE)
 
@@ -155,6 +128,6 @@ upscaled = vsmlrt.RealESRGAN(
 )
 
 # Convert back to YUV420P10 for our standard encoders
-out = core.resize.Bicubic(upscaled, format=vs.YUV420P10, matrix_s="709")
-out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+out = core.resize.Bicubic(upscaled, format=vs.YUV420P10, matrix_s="709", range_s=al.range_name())
+out = core.std.SetFrameProps(out, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 out.set_output()

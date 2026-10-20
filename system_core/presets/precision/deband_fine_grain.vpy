@@ -16,6 +16,8 @@ import os
 import vapoursynth as vs
 core = vs.core
 
+import audion_lib as al
+
 INPUT     = os.environ["AUDION_VS_INPUT"]
 RANGE     = int(os.environ.get("AUDION_VS_RANGE", "14"))
 Y         = int(os.environ.get("AUDION_VS_Y",  "48"))
@@ -24,14 +26,7 @@ CR        = int(os.environ.get("AUDION_VS_CR", "32"))
 GRAIN_VAR = float(os.environ.get("AUDION_VS_GRAIN_VAR", "0.6"))
 
 
-def _load(path: str):
-    try:
-        return core.lsmas.LWLibavSource(path)
-    except (vs.Error, AttributeError):
-        return core.ffms2.Source(path)
-
-
-clip = _load(INPUT)
+clip = al.load_source(INPUT)
 
 # 16-bit headroom for deband + grain
 clip = core.fmtc.bitdepth(clip, bits=16)
@@ -44,7 +39,7 @@ clip = core.neo_f3kdb.Deband(
 )
 
 # Fine grain restoration -- prevents the "clean plastic" look after deband
-clip = core.grain.Add(
+clip = al.add_grain(
     clip,
     var=GRAIN_VAR * 1.5,
     uvar=GRAIN_VAR * 0.4,
@@ -52,5 +47,5 @@ clip = core.grain.Add(
 )
 
 clip = core.fmtc.bitdepth(clip, bits=10)
-clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=1)
+clip = core.std.SetFrameProps(clip, _Matrix=1, _Transfer=1, _Primaries=1, _Range=al.source_range())
 clip.set_output()

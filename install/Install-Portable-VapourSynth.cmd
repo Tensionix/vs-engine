@@ -13,8 +13,8 @@ for %%A in (%*) do if /I "%%~A"=="/NOPAUSE" set "NO_PAUSE=1"
 set "PS1_FILE=%SCRIPT_DIR%\Install-Portable-VapourSynth.ps1"
 set "PS_EXE="
 
-rem Resolve PowerShell: portable -> system pwsh -> Windows PS
-if exist "%ROOT%\system_core\powershell\pwsh.exe" set "PS_EXE=%ROOT%\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+if exist "%ROOT%\App\AudionPs.exe" set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
@@ -28,6 +28,7 @@ set "OPT_VSVER="
 if "%~1"=="" goto SHOW
 if /I "%~1"=="/F"     ( set "OPT_FORCE=-Force" & shift & goto PARSE )
 if /I "%~1"=="/FORCE" ( set "OPT_FORCE=-Force" & shift & goto PARSE )
+rem /R R81 - a release by its tag; nothing or /R latest - the newest stable.
 if /I "%~1"=="/R"     ( set "OPT_VSVER=-VSVersion %~2" & shift & shift & goto PARSE )
 if /I "%~1"=="/NOPAUSE" ( set "NO_PAUSE=1" & shift & goto PARSE )
 shift
@@ -54,7 +55,7 @@ if not defined NO_PAUSE pause
 exit /b 0
 
 :ERR_NOPS
-echo [ERROR] No PowerShell found (portable, system pwsh, or powershell.exe).
+echo [ERROR] No PowerShell found (App\AudionPs.exe, system pwsh, or powershell.exe).
 if not defined NO_PAUSE pause
 exit /b 1
 
